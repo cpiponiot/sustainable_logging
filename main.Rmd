@@ -1,0 +1,35 @@
+---
+title: "Sustainable logging - main document"
+output: 
+  html_document:
+    theme: journal
+    toc: yes
+    toc_float: yes
+    keep_md: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, root.dir = rprojroot::find_rstudio_root_file())
+# load libraries
+library(kableExtra)
+library(data.table)
+library(ggplot2)
+```
+
+```{r}
+source("functions/timbRecovery.R")
+
+timeLength = 500
+logIntensity = 10
+logCycle = 60
+omega0 = 0.80
+longitude = c(-70, -52) 
+latitude = c(0, -5)
+dti = 0.10
+
+recov = timbRecovery(timeLength, logIntensity, logCycle, omega0, longitude, latitude, dti)
+
+plot(recov[[1]], type = "l", ylab = "Timber volume (m3/ha)", xlab = "Time (yr)")
+lines(recov[[2]], lty=2, ylab = "Timber volume (m3/ha)", xlab = "Time (yr)")
+
+```
