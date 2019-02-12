@@ -24,7 +24,7 @@ Four input variables differ among scenarios:
 
 
 
-## Without uncertainties
+## Timber recovery trajetories depending on input variables
 
 The following table summarizes the 5 scenarios and the values of each input variable. 
 
@@ -43,35 +43,35 @@ The following table summarizes the 5 scenarios and the values of each input vari
    <td style="text-align:left;"> default </td>
    <td style="text-align:right;"> 10 </td>
    <td style="text-align:right;"> 35 </td>
-   <td style="text-align:right;"> 0.7 </td>
+   <td style="text-align:right;"> 0.9 </td>
    <td style="text-align:right;"> 0.1 </td>
   </tr>
   <tr>
    <td style="text-align:left;"> highIntensity </td>
    <td style="text-align:right;"> 30 </td>
    <td style="text-align:right;"> 35 </td>
-   <td style="text-align:right;"> 0.7 </td>
+   <td style="text-align:right;"> 0.9 </td>
    <td style="text-align:right;"> 0.1 </td>
   </tr>
   <tr>
    <td style="text-align:left;"> longCycle </td>
    <td style="text-align:right;"> 10 </td>
    <td style="text-align:right;"> 65 </td>
-   <td style="text-align:right;"> 0.7 </td>
+   <td style="text-align:right;"> 0.9 </td>
    <td style="text-align:right;"> 0.1 </td>
   </tr>
   <tr>
-   <td style="text-align:left;"> divCommSpecies </td>
+   <td style="text-align:left;"> lessCommSpecies </td>
    <td style="text-align:right;"> 10 </td>
    <td style="text-align:right;"> 35 </td>
-   <td style="text-align:right;"> 0.9 </td>
+   <td style="text-align:right;"> 0.3 </td>
    <td style="text-align:right;"> 0.1 </td>
   </tr>
   <tr>
    <td style="text-align:left;"> prevDisturb </td>
    <td style="text-align:right;"> 10 </td>
    <td style="text-align:right;"> 35 </td>
-   <td style="text-align:right;"> 0.7 </td>
+   <td style="text-align:right;"> 0.9 </td>
    <td style="text-align:right;"> 0.4 </td>
   </tr>
 </tbody>
@@ -79,31 +79,13 @@ The following table summarizes the 5 scenarios and the values of each input vari
 
 The following figure shows the predicted trajectory of timber volume stocks for each of the 5 scenarios. 
 
-![](main_files/figure-html/illustr_traj-1.png)<!-- -->
-
-The following figure shows the predicted trajectory of timber volume stocks for each of the 5 scenarios. 
-
-![](main_files/figure-html/illustr_vextReal-1.png)<!-- -->
-
-Only the "longCycle" scenario maintains high levels of timber volume and a constant production after 1000 years; it can be considered sustainable. 
-
-
-## With uncertainties
-
-The following figure shows the predicted trajectory of timber volume stocks for each of the 5 scenarios. 
-
-
-```
-##    user  system elapsed 
-##    8.23    0.12    8.36
-```
-
 ![](main_files/figure-html/illustr_traj_uncert-1.png)<!-- -->
 
 The following figure shows the predicted trajectory of timber volume stocks for each of the 5 scenarios. 
 
 ![](main_files/figure-html/illustr_vextReal_uncert-1.png)<!-- -->
 
+Only the "longCycle" scenario maintains high levels of timber volume and a constant production after 1000 years; it can be considered sustainable. 
 
 ## Configurations of logging that are sustainable
 
@@ -115,7 +97,7 @@ For now we consider logging sustainable if the production (max-likelihood) stays
 
 The following picture shows the proportion of extracted volume compared to the expected logging intensity over the first 100 cycles. If this proportion is 1, then logging can be considered sustainable. 
 
-Here we hpothesize that $\omega_0 = 1$ (all species are commercial) and that $dti = 0$ (no pre-logging anthropogenic disturbance). 
+First we use a "perfect conditions" scenario with $\omega_0 = 1$ (all species are commercial) and that $dti = 0$ (no pre-logging anthropogenic disturbance). 
 
 ![](main_files/figure-html/unnamed-chunk-4-1.png)<!-- -->![](main_files/figure-html/unnamed-chunk-4-2.png)<!-- -->
 
@@ -126,3 +108,19 @@ Here we hpothesize that $\omega_0 = 1$ (all species are commercial) and that $dt
 ### Effect of adding prelogging anthropogenic disturbances (ie changing $dti$)
 
 ![](main_files/figure-html/unnamed-chunk-6-1.png)<!-- -->
+
+
+## Changing the location
+
+For now we consider logging sustainable if the production (max-likelihood) stays constant during the first 100 cycles. 
+
+
+
+
+### Effect of diversifying commercial species (ie changing $\omega_0$)
+
+![](main_files/figure-html/unnamed-chunk-8-1.png)<!-- -->
+
+### Effect of adding prelogging anthropogenic disturbances (ie changing $dti$)
+
+![](main_files/figure-html/unnamed-chunk-9-1.png)<!-- -->

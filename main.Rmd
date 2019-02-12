@@ -36,15 +36,15 @@ Four input variables differ among scenarios:
 timeLength = 1000
 logIntensity = rep(10, 5); logIntensity[2] = 30
 logCycle = rep(35, 5); logCycle[3] = 65
-omega0 = rep(0.70, 5); omega0[4] = 0.90
+omega0 = rep(0.90, 5); omega0[4] = 0.30
 longitude = rep(-60.6, 5) ## location: Manaus
 latitude = rep(-3.3, 5)
 dti = rep(0.10, 5); dti[5] = 0.40
-tabScenario = data.table(scenario = c("default", "highIntensity", "longCycle", "divCommSpecies", "prevDisturb"), 
+tabScenario = data.table(scenario = c("default", "highIntensity", "longCycle", "lessCommSpecies", "prevDisturb"), 
                          logIntensity, logCycle, omega0, dti)
 ```
 
-## Without uncertainties
+## Timber recovery trajetories depending on input variables
 
 The following table summarizes the 5 scenarios and the values of each input variable. 
 
@@ -56,46 +56,11 @@ tabScenario %>%
 
 The following figure shows the predicted trajectory of timber volume stocks for each of the 5 scenarios. 
 
-```{r illustr_traj, fig.height=4, fig.width=10}
+```{r illustr_traj_uncert, fig.height=4, fig.width=10}
 
 source("functions/timbRecovery.R")
 
-recov = timbRecovery(timeLength, logIntensity, logCycle, omega0, longitude, latitude, dti)
-
-dfrecov = do.call(data.table, recov[[1]])
-colnames(dfrecov) = tabScenario$scenario
-dfrecov$t = 1:timeLength
-dfrecov = melt(dfrecov, id.vars = "t", value.name = "volume", variable.name = "scenario")
-
-ggplot(dfrecov, aes(x=t, y = volume, color = scenario)) + geom_line() + xlab("Time since first logging event (yr)") + ylab("Commercial timber volume (m3/ha)") 
-```
-
-The following figure shows the predicted trajectory of timber volume stocks for each of the 5 scenarios. 
-
-```{r illustr_vextReal, fig.height=2, fig.width=10}
-vextReal = data.table(t(recov[[2]]))
-colnames(vextReal) = tabScenario$scenario
-vextReal$ncycle = 1:nrow(vextReal)
-vextReal = melt(vextReal, id.vars = "ncycle", value.name = "intensity", variable.name = "scenario")
-
-ggplot(vextReal, aes(x= ncycle, y = intensity, colour = scenario)) + geom_line() + facet_wrap(~scenario, nrow = 1) + 
-  xlab("Number of cutting cycles") + ylab("Volume extracted")
-```
-
-Only the "longCycle" scenario maintains high levels of timber volume and a constant production after 1000 years; it can be considered sustainable. 
-
-
-## With uncertainties
-
-The following figure shows the predicted trajectory of timber volume stocks for each of the 5 scenarios. 
-
-```{r illustr_traj_uncert, fig.height=4, fig.width=10}
-
-source("functions/timbRecoveryUncert.R")
-
-ptm <- proc.time()
-recov = timbRecoveryUncert(timeLength, logIntensity, logCycle, omega0, longitude, latitude, dti)
-proc.time() - ptm
+recov = timbRecovery(timeLength, logIntensity, logCycle, omega0, longitude, latitude, dti, uncertainties = TRUE)
 
 dfrecov = recov[[1]]
 dfrecov$scenario = tabScenario$scenario[dfrecov$site]
@@ -117,6 +82,7 @@ ggplot(vextReal, aes(x = ncycle, y = med, color = scenario, ymin = inf, ymax = s
   facet_wrap(~scenario, nrow = 1) + xlab("Number of cutting cycles") + ylab("Volume extracted")
 ```
 
+Only the "longCycle" scenario maintains high levels of timber volume and a constant production after 1000 years; it can be considered sustainable. 
 
 ## Configurations of logging that are sustainable
 
@@ -128,7 +94,7 @@ timeLength = 1000
 tabScenario = data.table(expand.grid(logIntensity = seq(5,35,5), 
                                      logCycle = seq(10,100,10), 
                                      omega0 = seq(0.1,1,0.1), 
-                                     dti = seq(0,0.5,0.1)))
+                                     dti = seq(0,0.7,0.1)))
 tabScenario$longitude = -60.6
 tabScenario$latitude = -3.3
 
@@ -136,16 +102,14 @@ if (calc_data) {
   recov = timbRecovery(timeLength, tabScenario$logIntensity, 
                        tabScenario$logCycle, tabScenario$omega0, 
                        tabScenario$longitude, tabScenario$latitude, 
-                       tabScenario$dti)
+                       tabScenario$dti, uncertainties = FALSE)
   
   vextReal = data.table(tabScenario, recov[[2]])
-  dfvextReal = melt(vextReal, id.vars = colnames(tabScenario), variable.name = "ncycle", value.name = "vext")
-  dfvextReal$ncycle = as.numeric(gsub("V", "", dfvextReal$ncycle))
   
-  dfSustain = dfvextReal[,.(pVextTot = sum(vext)/(logIntensity*last(ncycle))), .(logIntensity, logCycle, omega0, dti)]
-  save(dfSustain, file = "Rdata_files/dfvext_sustain.Rdata")
+  dfSustain = vextReal[,.(pVextTot = sum(vextReal)/(logIntensity*last(ncycle))), .(logIntensity, logCycle, omega0, dti)]
+  save(dfSustain, file = "Rdata_files/dfvext_sustain_manaus.Rdata")
   
-} else load("Rdata_files/dfvext_sustain.Rdata")
+} else load("Rdata_files/dfvext_sustain_manaus.Rdata")
 
 ```
 
@@ -153,7 +117,7 @@ if (calc_data) {
 
 The following picture shows the proportion of extracted volume compared to the expected logging intensity over the first 100 cycles. If this proportion is 1, then logging can be considered sustainable. 
 
-Here we hpothesize that $\omega_0 = 1$ (all species are commercial) and that $dti = 0$ (no pre-logging anthropogenic disturbance). 
+First we use a "perfect conditions" scenario with $\omega_0 = 1$ (all species are commercial) and that $dti = 0$ (no pre-logging anthropogenic disturbance). 
 
 ```{r, fig.height = 3, fig.width=5}
 dfSustain$sustainable = (dfSustain$pVextTot > 0.99)
@@ -183,4 +147,67 @@ ggplot(subset(dfSustain,dti == 0) ) +
 ggplot(subset(dfSustain, omega0 == 1) ) + 
   geom_raster(aes(x = logIntensity, y = logCycle, fill = sustainable)) + 
   theme(aspect.ratio=1) + facet_wrap( ~ paste0("dti = ", dti*100, "%"), nrow = 2)
+```
+
+
+## Changing the location
+
+For now we consider logging sustainable if the production (max-likelihood) stays constant during the first 100 cycles. 
+
+```{r}
+timeLength = 1000
+
+coordinates = data.table(siteName = c("Itoupe", "Paragominas", "RioBranco", "Iquitos"), 
+                         longitude = c(-53.6, -47.4, -68, -73.4), 
+                         latitude = c(3.5, -3.0, -10, -3.75))
+tabScenario = data.table(expand.grid(logIntensity = seq(5,35,5), 
+                                     logCycle = seq(10,100,10), 
+                                     omega0 = seq(0.2,1,0.2), 
+                                     dti = seq(0,0.6,0.2), 
+                                     siteName = coordinates$siteName))
+tabScenario = merge(tabScenario, coordinates, by = "siteName") 
+
+if (calc_data) {
+  recov = timbRecovery(timeLength, tabScenario$logIntensity, 
+                       tabScenario$logCycle, tabScenario$omega0, 
+                       tabScenario$longitude, tabScenario$latitude, 
+                       tabScenario$dti, uncertainties = FALSE)
+  
+  vextReal = data.table(tabScenario, recov[[2]])
+  dfvextReal = melt(vextReal, id.vars = colnames(tabScenario), variable.name = "ncycle", value.name = "vext")
+  dfvextReal$ncycle = as.numeric(gsub("V", "", dfvextReal$ncycle))
+  
+  dfSustain_sites = dfvextReal[,.(pVextTot = sum(vext)/(logIntensity*last(ncycle))), .(logIntensity, logCycle, omega0, dti, siteName)]
+  save(dfSustain_sites, file = "Rdata_files/dfvext_sustain_sites.Rdata")
+  
+} else load("Rdata_files/dfvext_sustain_sites.Rdata")
+
+load("Rdata_files/dfvext_sustain_manaus.Rdata")
+
+dfSustain$siteName = "Manaus"
+dfSustain = subset(dfSustain, !(omega0 %in% seq(0.1,9,0.2)) &
+                      !(dti %in% seq(0.1,0.5,0.2)))
+dfSustain = rbind(dfSustain, dfSustain_sites)
+```
+
+
+### Effect of diversifying commercial species (ie changing $\omega_0$)
+
+```{r, fig.height = 10, fig.width=10}
+dfSustain$sustainable = (dfSustain$pVextTot > 0.99)
+
+dfSustain$lab_omega0 = factor(dfSustain$omega0)
+levels(dfSustain$lab_omega0) = paste0("omega0 = ", as.numeric(levels(dfSustain$lab_omega0))*100, "%")
+
+ggplot(subset(dfSustain,dti == 0) ) + 
+  geom_raster(aes(x = logIntensity, y = logCycle, fill = sustainable)) + 
+  theme(aspect.ratio=1) + facet_grid( siteName ~ lab_omega0)
+```
+
+### Effect of adding prelogging anthropogenic disturbances (ie changing $dti$)
+
+```{r, fig.height = 10, fig.width=10}
+ggplot(subset(dfSustain, omega0 == 1) ) + 
+  geom_raster(aes(x = logIntensity, y = logCycle, fill = sustainable)) + 
+  theme(aspect.ratio=1)  + facet_grid( siteName ~ paste0("dti = ", dti*100, "%"))
 ```
