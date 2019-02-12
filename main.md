@@ -8,6 +8,7 @@ output:
 
 
 
+# Exploring timber volume trajectories
 
 We will first test 5 scenarios and look at the predicted trajectories. The location stays the same (here we use Manaus coordinates in central Amazonia).
 
@@ -22,6 +23,8 @@ Four input variables differ among scenarios:
 - $dti$: the pre-logging disturbance factor (between 0 and 1): when $dti=0$, the site has suffered no human disturbance previous to logging; if $dti=1$, the site has been completely disturbed and clearcut. 
 
 
+
+## Without uncertainties
 
 The following table summarizes the 5 scenarios and the values of each input variable. 
 
@@ -85,9 +88,15 @@ The following figure shows the predicted trajectory of timber volume stocks for 
 Only the "longCycle" scenario maintains high levels of timber volume and a constant production after 1000 years; it can be considered sustainable. 
 
 
-### With uncertainties
+## With uncertainties
 
 The following figure shows the predicted trajectory of timber volume stocks for each of the 5 scenarios. 
+
+
+```
+##    user  system elapsed 
+##    8.23    0.12    8.36
+```
 
 ![](main_files/figure-html/illustr_traj_uncert-1.png)<!-- -->
 
@@ -96,3 +105,24 @@ The following figure shows the predicted trajectory of timber volume stocks for 
 ![](main_files/figure-html/illustr_vextReal_uncert-1.png)<!-- -->
 
 
+## Configurations of logging that are sustainable
+
+For now we consider logging sustainable if the production (max-likelihood) stays constant during the first 100 cycles. 
+
+
+
+### In perfect conditions 
+
+The following picture shows the proportion of extracted volume compared to the expected logging intensity over the first 100 cycles. If this proportion is 1, then logging can be considered sustainable. 
+
+Here we hpothesize that $\omega_0 = 1$ (all species are commercial) and that $dti = 0$ (no pre-logging anthropogenic disturbance). 
+
+![](main_files/figure-html/unnamed-chunk-4-1.png)<!-- -->![](main_files/figure-html/unnamed-chunk-4-2.png)<!-- -->
+
+### Effect of diversifying commercial species (ie changing $\omega_0$)
+
+![](main_files/figure-html/unnamed-chunk-5-1.png)<!-- -->
+
+### Effect of adding prelogging anthropogenic disturbances (ie changing $dti$)
+
+![](main_files/figure-html/unnamed-chunk-6-1.png)<!-- -->

@@ -9,6 +9,8 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, 
                       root.dir = rprojroot::find_rstudio_root_file())
+calc_data = FALSE
+
 # load libraries
 library(knitr)
 library(kableExtra)
@@ -116,5 +118,69 @@ ggplot(vextReal, aes(x = ncycle, y = med, color = scenario, ymin = inf, ymax = s
 ```
 
 
-For now we can say that logging is sustainable if the production stays constant during the first 30 cycles. 
+## Configurations of logging that are sustainable
 
+For now we consider logging sustainable if the production (max-likelihood) stays constant during the first 100 cycles. 
+
+```{r}
+timeLength = 1000
+
+tabScenario = data.table(expand.grid(logIntensity = seq(5,35,5), 
+                                     logCycle = seq(10,100,10), 
+                                     omega0 = seq(0.1,1,0.1), 
+                                     dti = seq(0,0.5,0.1)))
+tabScenario$longitude = -60.6
+tabScenario$latitude = -3.3
+
+if (calc_data) {
+  recov = timbRecovery(timeLength, tabScenario$logIntensity, 
+                       tabScenario$logCycle, tabScenario$omega0, 
+                       tabScenario$longitude, tabScenario$latitude, 
+                       tabScenario$dti)
+  
+  vextReal = data.table(tabScenario, recov[[2]])
+  dfvextReal = melt(vextReal, id.vars = colnames(tabScenario), variable.name = "ncycle", value.name = "vext")
+  dfvextReal$ncycle = as.numeric(gsub("V", "", dfvextReal$ncycle))
+  
+  dfSustain = dfvextReal[,.(pVextTot = sum(vext)/(logIntensity*last(ncycle))), .(logIntensity, logCycle, omega0, dti)]
+  save(dfSustain, file = "Rdata_files/dfvext_sustain.Rdata")
+  
+} else load("Rdata_files/dfvext_sustain.Rdata")
+
+```
+
+### In perfect conditions 
+
+The following picture shows the proportion of extracted volume compared to the expected logging intensity over the first 100 cycles. If this proportion is 1, then logging can be considered sustainable. 
+
+Here we hpothesize that $\omega_0 = 1$ (all species are commercial) and that $dti = 0$ (no pre-logging anthropogenic disturbance). 
+
+```{r, fig.height = 3, fig.width=5}
+dfSustain$sustainable = (dfSustain$pVextTot > 0.99)
+
+ggplot(subset(dfSustain, omega0==1 & dti == 0) ) + 
+  geom_raster(aes(x = logIntensity, y = logCycle, fill = pVextTot)) + 
+  theme(aspect.ratio=1) 
+ggplot(subset(dfSustain, omega0==1 & dti == 0) ) + 
+  geom_raster(aes(x = logIntensity, y = logCycle, fill = sustainable)) + 
+  theme(aspect.ratio=1) 
+```
+
+### Effect of diversifying commercial species (ie changing $\omega_0$)
+
+```{r, fig.height = 4, fig.width=10}
+dfSustain$lab_omega0 = factor(dfSustain$omega0)
+levels(dfSustain$lab_omega0) = paste0("omega0 = ", as.numeric(levels(dfSustain$lab_omega0))*100, "%")
+
+ggplot(subset(dfSustain,dti == 0) ) + 
+  geom_raster(aes(x = logIntensity, y = logCycle, fill = sustainable)) + 
+  theme(aspect.ratio=1) + facet_wrap( ~ lab_omega0, nrow = 2)
+```
+
+### Effect of adding prelogging anthropogenic disturbances (ie changing $dti$)
+
+```{r, fig.height = 4, fig.width=10}
+ggplot(subset(dfSustain, omega0 == 1) ) + 
+  geom_raster(aes(x = logIntensity, y = logCycle, fill = sustainable)) + 
+  theme(aspect.ratio=1) + facet_wrap( ~ paste0("dti = ", dti*100, "%"), nrow = 2)
+```

@@ -7,7 +7,7 @@ updateLoggingParams <- function(mat0, omega0, logIntensity, aG, aM, bG, bM, thet
   
   volume0 = volume(mat0, aG, aM, bG, bM, theta, pdef)
   
-  vextReal = apply(cbind(volume0, logIntensity), 1, min)
+  vextReal = apply(cbind(volume0*omega0, logIntensity), 1, min)
   
   ## total volume loss
   ## / pdef ... * pdef : all trees can be damaged (with or without defects)
