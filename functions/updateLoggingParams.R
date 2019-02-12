@@ -22,5 +22,5 @@ updateLoggingParams <- function(mat0, omega0, logIntensity, aG, aM, bG, bM, thet
   # post-logging maturity
   mat1 <- apply(cbind(mat0, deltaV, aG, aM, bG, bM, theta, pdef), 1, t0Prediction)
   
-  return(list(mat1, omega1))
+  return(list(mat1, omega1, vextReal))
 }

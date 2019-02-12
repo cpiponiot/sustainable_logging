@@ -32,7 +32,8 @@ timbRecovery = function(timeLength, logIntensity, logCycle, omega0, longitude, l
   spatVariables$stem_mort = logist(spatVariables$mu_logit_sm)
   spatVariables = spatVariables[,-grep("logit",colnames(spatVariables)), with = FALSE]
   
-  dfPred = data.table(long = round(longitude + 0.5) - 0.5, lat = round(latitude + 0.5) - 0.5)
+  dfPred = data.table(long = round(longitude + 0.5) - 0.5, 
+                      lat = round(latitude + 0.5) - 0.5)
   
   if (nrow(merge(dfPred, spatVariables, by=c("long","lat"))) < nrow(dfPred))
     stop(paste(nrow(dfPred) - nrow(merge(dfPred, spatVariables, by=c("long","lat"))), 
@@ -45,17 +46,18 @@ timbRecovery = function(timeLength, logIntensity, logCycle, omega0, longitude, l
   pdef = 6/20 ### rbeta(1, 6, 14)
   
   ## initial maturity 
-  if (is.na(dti)) 
+  if (any(is.na(dti))) 
     sample(pars_dti, nrow(dfPred))
   matInit = dfPred$stem_mort^(-pars_Vrec$lambda_ti)*( 1 - dti)
   
   ## number of cycles to reach timeLength
-  nCycles = ceiling(timeLength / logCycle)
+  nCycles = max(ceiling(timeLength / logCycle))
   
   matPreLog = matrix(matInit, ncol = 1)
   omPreLog = matrix(omega0, ncol = 1, nrow = length(matInit))
   omPostLog = c()
   omRecruits = c()
+  vextReal = c()
   
   for (i in 1:nCycles) {
     
@@ -63,6 +65,7 @@ timbRecovery = function(timeLength, logIntensity, logCycle, omega0, longitude, l
     newParams = updateLoggingParams(mat0 = matPreLog[,i], omega0 = omPreLog[,i], logIntensity = logIntensity, 
                                     aG = dfPred$aG, aM = aM, bG = pars_Vrec$bP, bM = pars_Vrec$bM, 
                                     theta = pars_Vrec$theta, pdef = pdef, psi = pars_rho$rho, e = pars_rho$e)
+    vextReal = cbind(vextReal, newParams[[3]])
     
     ## update the proprotion of commercial recruits
     omR <- omPreLog[,i]
@@ -86,13 +89,20 @@ timbRecovery = function(timeLength, logIntensity, logCycle, omega0, longitude, l
     
   }
   
-  if (length(logCycle == 1)) 
+  if (length(logCycle) == 1) 
     logCycle = rep(logCycle, length(longitude))
   
-  lapply(1:length(longitude), function(i) {
+  vol_list = lapply(1:length(longitude), function(i) {
     t = 1:timeLength
-    mat = c(matPreLog[i,1], sapply(matPreLog[i,-1], function(x) x - logCycle[i]:1) )
+    mat = c(matPreLog[i,1], sapply(matPreLog[i,-1], function(x) x - logCycle[i]:1) )[t]
     volume(mat, ag = dfPred$aG_FORMIND[i], am = aM[i], bg = pars_Vrec$bP, bm = pars_Vrec$bM, th = pars_Vrec$theta, pdef)
   })
   
+  vol_list = lapply(1:length(longitude), function(i) {
+    t = 1:timeLength
+    mat = c(matPreLog[i,1], sapply(matPreLog[i,-1], function(x) x - logCycle[i]:1) )[t]
+    volume(mat, ag = dfPred$aG_FORMIND[i], am = aM[i], bg = pars_Vrec$bP, bm = pars_Vrec$bM, th = pars_Vrec$theta, pdef)
+  })
+  
+  return(list(vol_list, vextReal))
 }

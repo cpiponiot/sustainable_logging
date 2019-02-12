@@ -3,33 +3,118 @@ title: "Sustainable logging - main document"
 output: 
   html_document:
     theme: journal
-    toc: yes
-    toc_float: yes
     keep_md: true
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, root.dir = rprojroot::find_rstudio_root_file())
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, 
+                      root.dir = rprojroot::find_rstudio_root_file())
 # load libraries
+library(knitr)
 library(kableExtra)
 library(data.table)
 library(ggplot2)
 ```
 
-```{r}
-source("functions/timbRecovery.R")
+# Exploring timber volume trajectories
 
-timeLength = 500
-logIntensity = 10
-logCycle = 60
-omega0 = 0.80
-longitude = c(-70, -52) 
-latitude = c(0, -5)
-dti = 0.10
+We will first test 5 scenarios and look at the predicted trajectories. The location stays the same (here we use Manaus coordinates in central Amazonia).
+
+Four input variables differ among scenarios: 
+
+- the logging intensity (in m$^3$ha$^{-1}$)
+
+- the length of the logging cycle (in years)
+
+- $\omega 0$: the pre-logging proportion of commercial timber 
+
+- $dti$: the pre-logging disturbance factor (between 0 and 1): when $dti=0$, the site has suffered no human disturbance previous to logging; if $dti=1$, the site has been completely disturbed and clearcut. 
+
+```{r}
+timeLength = 1000
+logIntensity = rep(10, 5); logIntensity[2] = 30
+logCycle = rep(35, 5); logCycle[3] = 65
+omega0 = rep(0.70, 5); omega0[4] = 0.90
+longitude = rep(-60.6, 5) ## location: Manaus
+latitude = rep(-3.3, 5)
+dti = rep(0.10, 5); dti[5] = 0.40
+tabScenario = data.table(scenario = c("default", "highIntensity", "longCycle", "divCommSpecies", "prevDisturb"), 
+                         logIntensity, logCycle, omega0, dti)
+```
+
+## Without uncertainties
+
+The following table summarizes the 5 scenarios and the values of each input variable. 
+
+```{r}
+tabScenario %>%
+  kable() %>%
+  kable_styling()
+```
+
+The following figure shows the predicted trajectory of timber volume stocks for each of the 5 scenarios. 
+
+```{r illustr_traj, fig.height=4, fig.width=10}
+
+source("functions/timbRecovery.R")
 
 recov = timbRecovery(timeLength, logIntensity, logCycle, omega0, longitude, latitude, dti)
 
-plot(recov[[1]], type = "l", ylab = "Timber volume (m3/ha)", xlab = "Time (yr)")
-lines(recov[[2]], lty=2, ylab = "Timber volume (m3/ha)", xlab = "Time (yr)")
+dfrecov = do.call(data.table, recov[[1]])
+colnames(dfrecov) = tabScenario$scenario
+dfrecov$t = 1:timeLength
+dfrecov = melt(dfrecov, id.vars = "t", value.name = "volume", variable.name = "scenario")
+
+ggplot(dfrecov, aes(x=t, y = volume, color = scenario)) + geom_line() + xlab("Time since first logging event (yr)") + ylab("Commercial timber volume (m3/ha)") 
+```
+
+The following figure shows the predicted trajectory of timber volume stocks for each of the 5 scenarios. 
+
+```{r illustr_vextReal, fig.height=2, fig.width=10}
+vextReal = data.table(t(recov[[2]]))
+colnames(vextReal) = tabScenario$scenario
+vextReal$ncycle = 1:nrow(vextReal)
+vextReal = melt(vextReal, id.vars = "ncycle", value.name = "intensity", variable.name = "scenario")
+
+ggplot(vextReal, aes(x= ncycle, y = intensity, colour = scenario)) + geom_line() + facet_wrap(~scenario, nrow = 1) + 
+  xlab("Number of cutting cycles") + ylab("Volume extracted")
+```
+
+Only the "longCycle" scenario maintains high levels of timber volume and a constant production after 1000 years; it can be considered sustainable. 
+
+
+## With uncertainties
+
+The following figure shows the predicted trajectory of timber volume stocks for each of the 5 scenarios. 
+
+```{r illustr_traj_uncert, fig.height=4, fig.width=10}
+
+source("functions/timbRecoveryUncert.R")
+
+ptm <- proc.time()
+recov = timbRecoveryUncert(timeLength, logIntensity, logCycle, omega0, longitude, latitude, dti)
+proc.time() - ptm
+
+dfrecov = recov[[1]]
+dfrecov$scenario = tabScenario$scenario[dfrecov$site]
+
+ggplot(dfrecov, aes(x=t, y = med, color = scenario, ymin = inf, ymax = sup)) + 
+  geom_ribbon(aes(fill = scenario), colour = NA, alpha = 0.1) + geom_line() + theme(legend.position = "none") +
+  xlab("Time since first logging event (yr)") + ylab("Commercial timber volume (m3/ha)")  + facet_wrap(~scenario)
 
 ```
+
+The following figure shows the predicted trajectory of timber volume stocks for each of the 5 scenarios. 
+
+```{r illustr_vextReal_uncert, fig.height=2, fig.width=10}
+vextReal = data.table(recov[[2]])
+vextReal$scenario = tabScenario$scenario[vextReal$site]
+
+ggplot(vextReal, aes(x = ncycle, y = med, color = scenario, ymin = inf, ymax = sup)) + 
+  geom_ribbon(aes(fill = scenario), colour = NA, alpha = 0.1) + geom_line() + theme(legend.position = "none") +
+  facet_wrap(~scenario, nrow = 1) + xlab("Number of cutting cycles") + ylab("Volume extracted")
+```
+
+
+For now we can say that logging is sustainable if the production stays constant during the first 30 cycles. 
+
