@@ -16,9 +16,18 @@ library(knitr)
 library(kableExtra)
 library(data.table)
 library(ggplot2)
+library(parallel)
+
+rerun = FALSE   ## if true, heavy codes will be rerun to recalculate results; if false, results will be loaded from previously saved data
 ```
 
-# Exploring timber volume trajectories
+# Timber recovery model
+
+
+
+# Defining sustainability of logging 
+
+## Exploring timber volume trajectories
 
 We will first test 5 scenarios and look at the predicted trajectories. The location stays the same (here we use Manaus coordinates in central Amazonia).
 
@@ -44,7 +53,7 @@ tabScenario = data.table(scenario = c("default", "highIntensity", "longCycle", "
                          logIntensity, logCycle, omega0, dti)
 ```
 
-## Timber recovery trajetories depending on input variables
+
 
 The following table summarizes the 5 scenarios and the values of each input variable. 
 
@@ -82,9 +91,14 @@ ggplot(vextReal, aes(x = ncycle, y = med, color = scenario, ymin = inf, ymax = s
   facet_wrap(~scenario, nrow = 1) + xlab("Number of cutting cycles") + ylab("Volume extracted")
 ```
 
-Only the "longCycle" scenario maintains high levels of timber volume and a constant production after 1000 years; it can be considered sustainable. 
+Only the "longCycle" scenario maintains high levels of timber volume and a constant production after 1000 years. 
 
-## Configurations of logging that are sustainable
+## What criteria for sustainability? 
+
+
+
+
+# What affects sustainability
 
 For now we consider logging sustainable if the production (max-likelihood) stays constant during the first 100 cycles. 
 
@@ -113,7 +127,7 @@ if (calc_data) {
 
 ```
 
-### In perfect conditions 
+## Logging cycle and intensity
 
 The following picture shows the proportion of extracted volume compared to the expected logging intensity over the first 100 cycles. If this proportion is 1, then logging can be considered sustainable. 
 
@@ -130,7 +144,7 @@ ggplot(subset(dfSustain, omega0==1 & dti == 0) ) +
   theme(aspect.ratio=1) 
 ```
 
-### Effect of diversifying commercial species (ie changing $\omega_0$)
+## Proportion of commercial species (ie changing $\omega_0$)
 
 ```{r, fig.height = 4, fig.width=10}
 dfSustain$lab_omega0 = factor(dfSustain$omega0)
@@ -141,7 +155,7 @@ ggplot(subset(dfSustain,dti == 0) ) +
   theme(aspect.ratio=1) + facet_wrap( ~ lab_omega0, nrow = 2)
 ```
 
-### Effect of adding prelogging anthropogenic disturbances (ie changing $dti$)
+## Effect of adding prelogging anthropogenic disturbances (ie changing $dti$)
 
 ```{r, fig.height = 4, fig.width=10}
 ggplot(subset(dfSustain, omega0 == 1) ) + 
@@ -150,7 +164,7 @@ ggplot(subset(dfSustain, omega0 == 1) ) +
 ```
 
 
-## Changing the location
+## Location
 
 For now we consider logging sustainable if the production (max-likelihood) stays constant during the first 100 cycles. 
 
@@ -186,12 +200,12 @@ load("Rdata_files/dfvext_sustain_manaus.Rdata")
 
 dfSustain$siteName = "Manaus"
 dfSustain = subset(dfSustain, !(omega0 %in% seq(0.1,9,0.2)) &
-                      !(dti %in% seq(0.1,0.5,0.2)))
+                     !(dti %in% seq(0.1,0.5,0.2)))
 dfSustain = rbind(dfSustain, dfSustain_sites)
 ```
 
 
-### Effect of diversifying commercial species (ie changing $\omega_0$)
+### Changing the proportion of commercial species
 
 ```{r, fig.height = 10, fig.width=10}
 dfSustain$sustainable = (dfSustain$pVextTot > 0.99)
@@ -204,10 +218,97 @@ ggplot(subset(dfSustain,dti == 0) ) +
   theme(aspect.ratio=1) + facet_grid( siteName ~ lab_omega0)
 ```
 
-### Effect of adding prelogging anthropogenic disturbances (ie changing $dti$)
+### Changing pre-logging maturity
 
 ```{r, fig.height = 10, fig.width=10}
 ggplot(subset(dfSustain, omega0 == 1) ) + 
   geom_raster(aes(x = logIntensity, y = logCycle, fill = sustainable)) + 
   theme(aspect.ratio=1)  + facet_grid( siteName ~ paste0("dti = ", dti*100, "%"))
 ```
+
+
+# How much longer can we harvest at current rates? 
+
+```{r available area}
+
+timeLength <- 200
+
+prod_target <- 35 * 1e6
+
+if (rerun) {
+  
+  load("variables and parameters/areaLogging.Rdata")
+  
+  ## offset can be either logging intensity (20 m3/ha) or logging cycle length (35 years)
+  logIntensity_med <- 20
+  logCycle_med <- 35
+  
+  ## estimate the corresponding intensity/cycle to reach the production target
+  ## 2 options: with forests currently available for logging or with all unprotected forests
+  logCycle_calc <- floor(sum(areaLogging$areaTot * 100 * areaLogging$pCurrentAvail) * logIntensity_med / prod_target)  ## (*100): km2 -> ha
+  logCycle_calc_max <- floor(sum(areaLogging$areaTot * 100 * areaLogging$pNotProtect) * logIntensity_med / prod_target)
+  
+  logIntensity_calc <- floor(logCycle_med * prod_target / sum(areaLogging$areaTot * 100 * areaLogging$pCurrentAvail))  ## (*100): km2 -> ha
+  logIntensity_calc_max <- floor(logCycle_med * prod_target / sum(areaLogging$areaTot * 100 * areaLogging$pNotProtect))
+  
+  ## create the data table with all variables combinations
+  dfVariables = data.table(logIntensity = c(rep(logIntensity_med, 2), logIntensity_calc, logIntensity_calc_max), 
+                        logCycle = c(logCycle_calc, logCycle_calc_max, rep(logCycle_med, 2)), 
+                        scenario = rep(c("current","roadBuilding"), 2), 
+                        offSet = rep(c("intens","cycle"), each = 2), id = 1:4)
+  dfVariables = merge(dfVariables, expand.grid(id = 1:4, omega0 = seq(0.2, 1, 0.2)), by = "id")
+  
+  areaLogging$site = 1:nrow(areaLogging)
+  areaLogging_melt = melt(data.table(areaLogging), id.vars = c("long","lat","areaTot","site"), 
+                          variable.name = "scenario", value.name = "pArea", variable.factor = TRUE)
+  levels(areaLogging_melt$scenario) = c("current","roadBuilding")
+  
+  source("functions/timbRecovery.R")
+  
+  # Calculate the number of cores
+  no_cores <- detectCores() - 1
+  
+  # Initiate cluster
+  cl <- makeCluster(no_cores)
+  
+  clusterEvalQ(cl, library(data.table))
+  
+  clusterExport(cl, varlist = c("timbRecovery", "dfVariables", "timeLength", "areaLogging_melt"))
+  
+  recovChangOmega <- parSapply(cl, 1:nrow(dfVariables), function(i) {
+    
+    df_area = subset(areaLogging_melt, scenario == dfVariables$scenario[i])
+    recov = timbRecovery(timeLength, logIntensity = dfVariables$logIntensity[i], 
+                         logCycle = dfVariables$logCycle[i], omega0 = dfVariables$omega0[i], 
+                         longitude = df_area$long, latitude = df_area$lat, 
+                         area = df_area$areaTot*df_area$pArea)
+    return(recov)
+    
+  })
+  
+  stopCluster(cl)
+  
+  volumeVarAm = do.call(rbind, lapply(1:nrow(dfVariables), function(i) data.table(recovChangOmega[[1,i]], idVar = i)))
+  dfVariables$idVar = 1:nrow(dfVariables)
+  volumeVarAm = merge(volumeVarAm, dfVariables, by = "idVar")
+  
+  vextVarAm = do.call(rbind, lapply(1:nrow(dfVariables), function(i) data.table(recovChangOmega[[2,i]], idVar = i)))
+  dfVariables$idVar = 1:nrow(dfVariables)
+  vextVarAm = merge(vextVarAm, dfVariables, by = "idVar")
+  
+  save(volumeVarAm, vextVarAm, file = "Rdata_files/timeToEsgote.Rdata")
+  
+} else (load("Rdata_files/timeToEsgote.Rdata"))
+
+
+
+df_volTot = recov[[1]][,.(inf = sum(inf), med = sum(med), sup = sum(sup)) , .(t)]
+ggplot(df_volTot, aes(x=t, y = med, ymin = inf, ymax = sup)) + geom_line() + geom_ribbon(alpha = 0.2)
+
+
+df_vext = recov[[2]][,.(inf = sum(inf), med = sum(med), sup = sum(sup)) , .(ncycle)]
+ggplot(df_vext, aes(x=ncycle, y = med, ymin = inf, ymax = sup)) + geom_line() + geom_ribbon(alpha = 0.2)
+
+```
+
+

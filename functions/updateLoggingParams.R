@@ -11,7 +11,7 @@ updateLoggingParams <- function(mat0, omega0, logIntensity, aG, aM, bG, bM, thet
   
   ## total volume loss
   ## / pdef ... * pdef : all trees can be damaged (with or without defects)
-  deltaV <- deltaVPrediction(volume0 / (1-pdef), vextReal, omega0, psi, e) * (1 - pdef)
+  deltaV <- deltaVPrediction(V0 = volume0 / (1-pdef), Vext = vextReal, om0 = omega0, rho = psi, e = e) * (1 - pdef)
   
   ## post logging proportion of commercial species
   omega1 = ( omega0 * volume0 - vextReal ) / ( volume0 - deltaV )

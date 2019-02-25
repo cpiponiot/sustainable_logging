@@ -1,4 +1,5 @@
-timbRecovery = function(timeLength, logIntensity, logCycle, omega0, longitude, latitude, dti = NA, uncertainties = TRUE) {
+timbRecovery = function(timeLength, logIntensity, logCycle, omega0, longitude, latitude, dti = NA, 
+                        uncertainties = TRUE, area = NA) {
   ## without error propagation: timbRecovery
   
   if (length(longitude) != length(latitude) )
@@ -17,7 +18,10 @@ timbRecovery = function(timeLength, logIntensity, logCycle, omega0, longitude, l
     stop( "omega0 should be of length 1 or have the same size as coordinates.")
   
   if (!(length(dti) %in% c(1, length(longitude))) )
-    stop( "dti should be of length 1 or have the same size as coordinates.")
+    stop( "dti should be of length 1 or have the same size as coordinates.")  
+  
+  if (!is.na(area) & length(area) != length(longitude)) 
+    stop( "area should have the same size as coordinates.")
   
   if (uncertainties){
     load("variables and parameters/paramStan.Rdata")
@@ -62,13 +66,26 @@ timbRecovery = function(timeLength, logIntensity, logCycle, omega0, longitude, l
   
   dfPred$aM = dfPred$aG_FORMIND - dfPred$vmax_FORMIND*pars_Vrec$theta
   ##!! problem: aM < 0
+  ## for now
+  counts = 0
+  while (any(dfPred$aM < 0) & counts < 120) {  
+    new_df = dfPred[aM < 0, c("iter","long","lat")]
+    new_df$iter = sample(1:max(spatVariables$iter), sum(dfPred$aM < 0), replace = TRUE)
+    new_df = merge(new_df, spatVariables, by = c("iter", "long", "lat"))
+    
+    dfPred[aM < 0, c("aG_FORMIND","vmax_FORMIND")] <- new_df[, c("aG_FORMIND","vmax_FORMIND")]
+    dfPred$aM = dfPred$aG_FORMIND - dfPred$vmax_FORMIND*pars_Vrec$theta
+    
+    counts = counts + 1
+  }
+  
   if (uncertainties) {
     dfPred = merge(dfPred, data.table(iter = 1:100, pdef = rbeta(100, 6, 14)), by = "iter")
   } else dfPred$pdef = 0.3
   
   ## initial maturity 
   if (any(is.na(dti))) 
-    dfPred$dti = sample(pars_dti, nrow(dfPred))
+    dfPred$dti = sample(pars_dti, nrow(dfPred), replace = TRUE)
   
   dfPred[, matInit := stem_mort^(-lambda_ti)*( 1 - dti)]
   
@@ -157,26 +174,59 @@ timbRecovery = function(timeLength, logIntensity, logCycle, omega0, longitude, l
   ## calculate volume 
   predTime[, volume := volume(mat, aG_FORMIND, aM, bP, bM, theta, pdef)]
   
-  if (uncertainties) {
-    volInterval = predTime[,.(inf = quantile(volume*omega, 0.025), 
-                            med = quantile(volume*omega, 0.5), 
-                            sup = quantile(volume*omega, 0.975)) , .(t, site)]
+  if (is.na(area)) {
+    if (uncertainties) {
+      volInterval = predTime[,.(inf = quantile(volume*omega, 0.025), 
+                                med = quantile(volume*omega, 0.5), 
+                                sup = quantile(volume*omega, 0.975)) , .(t, site)]
+    } else {
+      predTime[,volTimb := volume * omega]
+      volInterval = predTime[,c("t", "site", "volTimb")]
+    }
+    
+    dfVextReal = data.table(vextReal)
+    colnames(dfVextReal) = as.character(1:nCycles)
+    dfVextReal$site = dfPred$site
+    dfVextReal$iter = dfPred$iter
+    dfVextReal = melt(dfVextReal, id.vars = c("iter","site"), variable.name = "ncycle", value.name = "vextReal")
+    dfVextReal[, ncycle := as.numeric(ncycle)]
+    if (uncertainties) {
+      dfVextReal = dfVextReal[,.(inf = quantile(vextReal, 0.025), 
+                                 med = quantile(vextReal, 0.5), 
+                                 sup = quantile(vextReal, 0.975)) , .(ncycle, site)]
+    } 
+    
   } else {
-    predTime[,volTimb := volume * omega0]
-    volInterval = predTime[,c("t", "site", "volTimb")]
+    
+    predTime = merge(predTime, data.table(site = 1:length(longitude), area), by = "site")
+    
+    if (uncertainties) {
+      
+      volInterval = predTime[,.(inf = quantile(sum(volume*omega*area), 0.025), 
+                                med = quantile(sum(volume*omega*area), 0.5), 
+                                sup = quantile(sum(volume*omega*area), 0.975)) , .(t)]
+    } else {
+      predTime[, .(volTimb = sum(volume * omega * area)), .(t)]
+      volInterval = predTime[,c("t", "volTimb")]
+    }
+    
+    dfVextReal = data.table(vextReal)
+    colnames(dfVextReal) = as.character(1:nCycles)
+    dfVextReal$site = dfPred$site
+    dfVextReal$iter = dfPred$iter
+    dfVextReal = merge(dfVextReal, data.table(site = 1:length(longitude), area), by = "site")
+    
+    dfVextReal = melt(dfVextReal, id.vars = c("iter","site","area"), variable.name = "ncycle", value.name = "vextReal")
+    dfVextReal[, ncycle := as.numeric(ncycle)]
+    if (uncertainties) {
+      dfVextReal = dfVextReal[,.(inf = quantile(sum(vextReal*area), 0.025), 
+                                 med = quantile(sum(vextReal*area), 0.5), 
+                                 sup = quantile(sum(vextReal*area), 0.975)) , .(ncycle)]
+    } else {
+      dfVextReal = dfVextReal[,.(vextReal = sum(vextReal*area)) , .(ncycle)]
+    }
+    
   }
   
-  dfVextReal = data.table(vextReal)
-  colnames(dfVextReal) = as.character(1:nCycles)
-  dfVextReal$site = dfPred$site
-  dfVextReal$iter = dfPred$iter
-  dfVextReal = melt(dfVextReal, id.vars = c("iter","site"), variable.name = "ncycle", value.name = "vextReal")
-  dfVextReal[, ncycle := as.numeric(ncycle)]
-  if (uncertainties) {
-      dfVextReal = dfVextReal[,.(inf = quantile(vextReal, 0.025), 
-                               med = quantile(vextReal, 0.5), 
-                               sup = quantile(vextReal, 0.975)) , .(ncycle, site)]
-  } 
-
   return(list(volInterval, dfVextReal))
 }

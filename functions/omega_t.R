@@ -24,7 +24,8 @@ omega_t = function(X){
   om = om1
   
   for (i in 1:(length(t)-1)) {
-    om2 = min((om[i]*V[i] + dVG[i]*(pR[i]*omR + (1-pR[i])*om[i]) - dVM[i]*om[i])/V[i+1], 1)
+    ## !! pb: if aM < 0, dVG and dVM can be negative => om_t < 0
+    om2 =min((om[i]*V[i] + dVG[i]*(pR[i]*omR + (1-pR[i])*om[i]) - dVM[i]*om[i])/V[i+1], 1)
     # if (V[i+1] == 0) om2 = omR
     om = c(om,om2)
   }
