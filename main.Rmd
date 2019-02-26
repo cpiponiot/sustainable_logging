@@ -281,7 +281,7 @@ if (rerun) {
     recov = timbRecovery(timeLength, logIntensity = dfVariables$logIntensity[i], 
                          logCycle = dfVariables$logCycle[i], omega0 = dfVariables$omega0[i], 
                          longitude = df_area$long, latitude = df_area$lat, 
-                         area = df_area$areaTot*100*df_area$pArea)
+                         area = df_area$areaTot*df_area$pArea)
     return(recov)
     
   })
@@ -315,14 +315,41 @@ volumeVarAm_ann = volumeVarAm[order(t) , .(inf = annualise(inf, logCycle, first(
                                            med = annualise(med, logCycle, first(inf)), 
                                            sup = annualise(sup, logCycle, first(inf)), t), 
                               .(idVar,logIntensity, logCycle, scenario, offSet, omega0)]
-  
-ggplot(volumeVarAm_ann, aes(x=t, y = med/1e6, ymin = inf/1e6, ymax = sup/1e6, colour = offSet, fill = offSet)) + geom_line() + 
-  facet_grid( scenario ~ omega0, scales = "free")  + geom_ribbon(alpha = 0.2, colour = NA)
-
-ggplot(vextVarAm, aes(x=(ncycle-1)*logCycle, y = med/logCycle, ymin = inf/logCycle, ymax = sup/logCycle, 
-                      colour = offSet, fill = offSet)) + geom_line() + 
-  facet_grid( scenario ~ omega0)  + geom_ribbon(alpha = 0.2, colour = NA)
-
 ```
 
 
+```{r, fig.height=4, fig.width = 12}
+
+volumeVarAm_ann$omega0 = factor(volumeVarAm_ann$omega0)
+levels(volumeVarAm_ann$omega0) = paste0("Commercial: ",as.numeric(levels(volumeVarAm_ann$omega0))*100,"%")
+
+volumeVarAm_ann$offSet = factor(volumeVarAm_ann$offSet)
+levels(volumeVarAm_ann$offSet) = c("Cycle = 35 yrs", "Intensity = 20 m3/ha")
+
+volumeVarAm_ann$scenario = factor(volumeVarAm_ann$scenario)
+levels(volumeVarAm_ann$scenario) = c("Currently available","All unprotected")
+
+ggplot(volumeVarAm_ann, aes(x=t, y = med/1e8, ymin = inf/1e8, ymax = sup/1e8, colour = offSet, fill = offSet)) + geom_line() + 
+  facet_grid( scenario ~ omega0, scales = "free")  + geom_ribbon(alpha = 0.2, colour = NA) + labs(x = "Time (yrs)", y = "Timber volume stocks (Mm3/ha)")
+```
+
+
+```{r, fig.height=4, fig.width = 12}
+vextVarAm$omega0 = factor(vextVarAm$omega0)
+levels(vextVarAm$omega0) = paste0("Commercial: ",as.numeric(levels(vextVarAm$omega0))*100,"%")
+
+vextVarAm$offSet = factor(vextVarAm$offSet)
+levels(vextVarAm$offSet) = c("Cycle = 35 yrs", "Intensity = 20 m3/ha")
+
+vextVarAm$scenario = factor(vextVarAm$scenario)
+levels(vextVarAm$scenario) = c("Currently available","All unprotected")
+
+ggplot(vextVarAm, aes(x=(ncycle-1)*logCycle, y = med/logCycle/1e8, ymin = inf/logCycle/1e8, ymax = sup/logCycle/1e8, 
+                      colour = offSet, fill = offSet)) + geom_line() + 
+  facet_grid( scenario ~ omega0)  + geom_ribbon(alpha = 0.2, colour = NA) + labs(x = "Time (yrs)", y = "Timber production (Mm3/yr)")
+
+```
+
+> In many cases timber production is way under the 35 Mm3/yr target because many grid cells do not have enough timber (especially when only 20% of the volume is commercial). 
+
+> Optimise timber intensities to reach target? 

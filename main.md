@@ -8,7 +8,13 @@ output:
 
 
 
-# Exploring timber volume trajectories
+# Timber recovery model
+
+
+
+# Defining sustainability of logging 
+
+## Exploring timber volume trajectories
 
 We will first test 5 scenarios and look at the predicted trajectories. The location stays the same (here we use Manaus coordinates in central Amazonia).
 
@@ -24,7 +30,7 @@ Four input variables differ among scenarios:
 
 
 
-## Timber recovery trajetories depending on input variables
+
 
 The following table summarizes the 5 scenarios and the values of each input variable. 
 
@@ -85,15 +91,20 @@ The following figure shows the predicted trajectory of timber volume stocks for 
 
 ![](main_files/figure-html/illustr_vextReal_uncert-1.png)<!-- -->
 
-Only the "longCycle" scenario maintains high levels of timber volume and a constant production after 1000 years; it can be considered sustainable. 
+Only the "longCycle" scenario maintains high levels of timber volume and a constant production after 1000 years. 
 
-## Configurations of logging that are sustainable
+## What criteria for sustainability? 
+
+
+
+
+# What affects sustainability
 
 For now we consider logging sustainable if the production (max-likelihood) stays constant during the first 100 cycles. 
 
 
 
-### In perfect conditions 
+## Logging cycle and intensity
 
 The following picture shows the proportion of extracted volume compared to the expected logging intensity over the first 100 cycles. If this proportion is 1, then logging can be considered sustainable. 
 
@@ -101,26 +112,41 @@ First we use a "perfect conditions" scenario with $\omega_0 = 1$ (all species ar
 
 ![](main_files/figure-html/unnamed-chunk-4-1.png)<!-- -->![](main_files/figure-html/unnamed-chunk-4-2.png)<!-- -->
 
-### Effect of diversifying commercial species (ie changing $\omega_0$)
+## Proportion of commercial species (ie changing $\omega_0$)
 
 ![](main_files/figure-html/unnamed-chunk-5-1.png)<!-- -->
 
-### Effect of adding prelogging anthropogenic disturbances (ie changing $dti$)
+## Effect of adding prelogging anthropogenic disturbances (ie changing $dti$)
 
 ![](main_files/figure-html/unnamed-chunk-6-1.png)<!-- -->
 
 
-## Changing the location
+## Location
 
 For now we consider logging sustainable if the production (max-likelihood) stays constant during the first 100 cycles. 
 
 
 
 
-### Effect of diversifying commercial species (ie changing $\omega_0$)
+### Changing the proportion of commercial species
 
 ![](main_files/figure-html/unnamed-chunk-8-1.png)<!-- -->
 
-### Effect of adding prelogging anthropogenic disturbances (ie changing $dti$)
+### Changing pre-logging maturity
 
 ![](main_files/figure-html/unnamed-chunk-9-1.png)<!-- -->
+
+
+# How much longer can we harvest at current rates? 
+
+
+
+
+![](main_files/figure-html/unnamed-chunk-10-1.png)<!-- -->
+
+
+![](main_files/figure-html/unnamed-chunk-11-1.png)<!-- -->
+
+> In many cases timber production is way under the 35 Mm3/yr target because many grid cells do not have enough timber (especially when only 20% of the volume is commercial). 
+
+> Optimise timber intensities to reach target? 
