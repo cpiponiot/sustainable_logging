@@ -1,26 +1,31 @@
+library(truncnorm)
+
+## when parameter "area" is proided, the function calculates logging trajectories as the sum of all 
+## sites' outputs (timber volume, extrated volume) multiplied by their area
+
 timbRecovery = function(timeLength, logIntensity, logCycle, omega0, longitude, latitude, dti = NA, 
                         uncertainties = TRUE, area = NA) {
   ## without error propagation: timbRecovery
   
-  if (length(longitude) != length(latitude) )
+  if ( length(longitude) != length(latitude) )
     stop( "Coordinates should have the same size.")
   
   if ( length(timeLength) != 1 ) 
     stop( "timeLength should be of length 1.")
   
-  if (!(length(logIntensity) %in% c(1, length(longitude))) )
+  if ( !(length(logIntensity) %in% c(1, length(longitude))) )
     stop( "logIntensity should be of length 1 or have the same size as coordinates.")
   
-  if (!(length(logCycle) %in% c(1, length(longitude))) )
+  if ( !(length(logCycle) %in% c(1, length(longitude))) )
     stop( "logCycle should be of length 1 or have the same size as coordinates.")
   
-  if (!(length(omega0) %in% c(1, length(longitude))) )
+  if ( !(length(omega0) %in% c(1, length(longitude))) )
     stop( "omega0 should be of length 1 or have the same size as coordinates.")
   
-  if (!(length(dti) %in% c(1, length(longitude))) )
+  if ( !(length(dti) %in% c(1, length(longitude))) )
     stop( "dti should be of length 1 or have the same size as coordinates.")  
   
-  if (!is.na(area) & length(area) != length(longitude)) 
+  if ( sum(is.na(area)) == 0 & length(area) != length(longitude) ) 
     stop( "area should have the same size as coordinates.")
   
   if (uncertainties){
@@ -42,9 +47,13 @@ timbRecovery = function(timeLength, logIntensity, logCycle, omega0, longitude, l
   
   spatVariables = merge(spatVariables, stemMortKrig, by = c("long","lat"))
   
+  logit = function(x) log(x/(1-x))
   logist = function(x) 1 / ( exp(-x) + 1 )
   
-  spatVariables$stem_mort = logist(rnorm(nrow(spatVariables), spatVariables$mu_logit_sm, spatVariables$sd_logit_sm))
+  spatVariables$stem_mort = logist(rtruncnorm(nrow(spatVariables), 
+                                              spatVariables$mu_logit_sm, 
+                                              spatVariables$sd_logit_sm, 
+                                              a = logit(0.005), b = logit(0.05)))
   spatVariables = spatVariables[,-grep("logit",colnames(spatVariables)), with = FALSE]
   
   dfPred = data.table(site = 1:length(longitude), 
@@ -67,8 +76,8 @@ timbRecovery = function(timeLength, logIntensity, logCycle, omega0, longitude, l
   dfPred$aM = dfPred$aG_FORMIND - dfPred$vmax_FORMIND*pars_Vrec$theta
   ##!! problem: aM < 0
   ## for now
-  counts = 0
-  while (any(dfPred$aM < 0) & counts < 120) {  
+  counts = 0 ## for safety
+  while (any(dfPred$aM < 0) & counts < 100) {  
     new_df = dfPred[aM < 0, c("iter","long","lat")]
     new_df$iter = sample(1:max(spatVariables$iter), sum(dfPred$aM < 0), replace = TRUE)
     new_df = merge(new_df, spatVariables, by = c("iter", "long", "lat"))
@@ -101,9 +110,10 @@ timbRecovery = function(timeLength, logIntensity, logCycle, omega0, longitude, l
   for (i in 1:nCycles) {
     
     ## update stand parameters (maturity, proportion of commercial species) after logging
-    newParams = updateLoggingParams(mat0 = matPreLog[,i], omega0 = omPreLog[,i], logIntensity = dfPred$logIntensity, 
-                                    aG = dfPred$aG, aM = dfPred$aM, bG = dfPred$bP, bM = dfPred$bM, 
-                                    theta = dfPred$theta, pdef = dfPred$pdef, psi = dfPred$rho, e = dfPred$e)
+    newParams = updateLoggingParams(mat0 = matPreLog[,i], matInit = matPreLog[,1], omega0 = omPreLog[,i], 
+                                    logIntensity = dfPred$logIntensity, aG = dfPred$aG, aM = dfPred$aM, 
+                                    bG = dfPred$bP, bM = dfPred$bM, theta = dfPred$theta, 
+                                    pdef = dfPred$pdef, psi = dfPred$rho, e = dfPred$e)
     vextReal = cbind(vextReal, newParams[[3]])
     
     ## update the proprotion of commercial recruits
@@ -131,31 +141,33 @@ timbRecovery = function(timeLength, logIntensity, logCycle, omega0, longitude, l
   ### predTime: trajectories
   predTime = merge(dfPred, data.table(expand.grid(iter = unique(dfPred$iter), 
                                                   site = 1:length(longitude), 
-                                                  t = 1:timeLength)), by = c("iter", "site"))
+                                                  t = 0:timeLength)), by = c("iter", "site"))
   
   predTime[, ncycle := ceiling(t/logCycle)] ## nb of the logging cycle
-  predTime[, tPL := t - floor(t/logCycle)*logCycle] ## time since last logging event
+  predTime[, tPL := t - floor((t-1)/logCycle)*logCycle] ## time since last logging event
   
   ## cycle-specific parameters -- maturity 
   dfmatPreLog = data.table(matPreLog)
-  colnames(dfmatPreLog) = as.character(1:(nCycles+1))
+  colnames(dfmatPreLog) = as.character(0:(nCycles))
   dfmatPreLog$site = dfPred$site
   dfmatPreLog$iter = dfPred$iter
-  dfmatPreLog = melt(dfmatPreLog, id.vars = c("iter","site"), variable.name = "ncycle", value.name = "mat0")
+  dfmatPreLog = melt(dfmatPreLog, id.vars = c("iter","site"), variable.name = "ncycle", 
+                     value.name = "matFinal", variable.factor = FALSE)
   dfmatPreLog[, ncycle := as.numeric(ncycle)]
   predTime = merge(predTime, dfmatPreLog, by = c("iter","site","ncycle"))
   
   ## get maturity
-  predTime[, mat := mat0 + tPL]
+  predTime[, mat := matFinal - logCycle + tPL]
   
   ## cycle-specific parameters -- omega : proportion of commercial volume
   
-  ## post-logging value
-  dfomPostLog = data.table(omPostLog)
-  colnames(dfomPostLog) = as.character(1:nCycles)
+  ## post-logging omega value
+  dfomPostLog = data.table(0, omPostLog)
+  colnames(dfomPostLog) = as.character(0:nCycles)
   dfomPostLog$site = dfPred$site
   dfomPostLog$iter = dfPred$iter
-  dfomPostLog = melt(dfomPostLog, id.vars = c("iter","site"), variable.name = "ncycle", value.name = "omegaPL")
+  dfomPostLog = melt(dfomPostLog, id.vars = c("iter","site"), variable.name = "ncycle", 
+                     value.name = "omegaPL", variable.factor = FALSE)
   dfomPostLog[, ncycle := as.numeric(ncycle)]
   predTime = merge(predTime, dfomPostLog, by = c("iter","site","ncycle"))
   
@@ -164,7 +176,8 @@ timbRecovery = function(timeLength, logIntensity, logCycle, omega0, longitude, l
   colnames(dfomPreLog) = as.character(0:(nCycles))
   dfomPreLog$site = dfPred$site
   dfomPreLog$iter = dfPred$iter
-  dfomPreLog = melt(dfomPreLog, id.vars = c("iter","site"), variable.name = "ncycle", value.name = "omegaFinal")
+  dfomPreLog = melt(dfomPreLog, id.vars = c("iter","site"), variable.name = "ncycle", 
+                    value.name = "omegaFinal", variable.factor = FALSE)
   dfomPreLog[, ncycle := as.numeric(ncycle)]
   predTime = merge(predTime, dfomPreLog, by = c("iter","site","ncycle"))
   
@@ -174,7 +187,7 @@ timbRecovery = function(timeLength, logIntensity, logCycle, omega0, longitude, l
   ## calculate volume 
   predTime[, volume := volume(mat, aG_FORMIND, aM, bP, bM, theta, pdef)]
   
-  if (is.na(area)) {
+  if (length(area) == 1 & sum(is.na(area)) == 1 ) {
     if (uncertainties) {
       volInterval = predTime[,.(inf = quantile(volume*omega, 0.025), 
                                 med = quantile(volume*omega, 0.5), 

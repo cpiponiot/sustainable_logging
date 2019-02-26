@@ -266,14 +266,14 @@ if (rerun) {
   source("functions/timbRecovery.R")
   
   # Calculate the number of cores
-  no_cores <- detectCores() - 1
+  no_cores <- detectCores() - 2
   
   # Initiate cluster
   cl <- makeCluster(no_cores)
   
   clusterEvalQ(cl, library(data.table))
   
-  clusterExport(cl, varlist = c("timbRecovery", "dfVariables", "timeLength", "areaLogging_melt"))
+  clusterExport(cl, varlist = c("timbRecovery", "dfVariables", "timeLength", "areaLogging_melt", "rtruncnorm"))
   
   recovChangOmega <- parSapply(cl, 1:nrow(dfVariables), function(i) {
     
@@ -281,7 +281,7 @@ if (rerun) {
     recov = timbRecovery(timeLength, logIntensity = dfVariables$logIntensity[i], 
                          logCycle = dfVariables$logCycle[i], omega0 = dfVariables$omega0[i], 
                          longitude = df_area$long, latitude = df_area$lat, 
-                         area = df_area$areaTot*df_area$pArea)
+                         area = df_area$areaTot*100*df_area$pArea)
     return(recov)
     
   })
@@ -290,24 +290,38 @@ if (rerun) {
   
   volumeVarAm = do.call(rbind, lapply(1:nrow(dfVariables), function(i) data.table(recovChangOmega[[1,i]], idVar = i)))
   dfVariables$idVar = 1:nrow(dfVariables)
-  volumeVarAm = merge(volumeVarAm, dfVariables, by = "idVar")
+  volumeVarAm = merge(volumeVarAm, dfVariables[,-"id"], by = "idVar")
   
   vextVarAm = do.call(rbind, lapply(1:nrow(dfVariables), function(i) data.table(recovChangOmega[[2,i]], idVar = i)))
   dfVariables$idVar = 1:nrow(dfVariables)
-  vextVarAm = merge(vextVarAm, dfVariables, by = "idVar")
+  vextVarAm = merge(vextVarAm, dfVariables[,-"id"], by = "idVar")
   
   save(volumeVarAm, vextVarAm, file = "Rdata_files/timeToEsgote.Rdata")
   
-} else (load("Rdata_files/timeToEsgote.Rdata"))
+} else { load("Rdata_files/timeToEsgote.Rdata") }
 
 
+## annualise harvests 
 
-df_volTot = recov[[1]][,.(inf = sum(inf), med = sum(med), sup = sum(sup)) , .(t)]
-ggplot(df_volTot, aes(x=t, y = med, ymin = inf, ymax = sup)) + geom_line() + geom_ribbon(alpha = 0.2)
+annualise = function(X, period, X0) {
+  mat = matrix(X0 / period, ncol = length(X), nrow = period)
+  for (i in 1:period) {
+    mat[i, i:length(X)] = X[1:(length(X)-i+1)]/period
+  }
+  return(colSums(mat))
+}
 
+volumeVarAm_ann = volumeVarAm[order(t) , .(inf = annualise(inf, logCycle, first(inf)), 
+                                           med = annualise(med, logCycle, first(inf)), 
+                                           sup = annualise(sup, logCycle, first(inf)), t), 
+                              .(idVar,logIntensity, logCycle, scenario, offSet, omega0)]
+  
+ggplot(volumeVarAm_ann, aes(x=t, y = med/1e6, ymin = inf/1e6, ymax = sup/1e6, colour = offSet, fill = offSet)) + geom_line() + 
+  facet_grid( scenario ~ omega0, scales = "free")  + geom_ribbon(alpha = 0.2, colour = NA)
 
-df_vext = recov[[2]][,.(inf = sum(inf), med = sum(med), sup = sum(sup)) , .(ncycle)]
-ggplot(df_vext, aes(x=ncycle, y = med, ymin = inf, ymax = sup)) + geom_line() + geom_ribbon(alpha = 0.2)
+ggplot(vextVarAm, aes(x=(ncycle-1)*logCycle, y = med/logCycle, ymin = inf/logCycle, ymax = sup/logCycle, 
+                      colour = offSet, fill = offSet)) + geom_line() + 
+  facet_grid( scenario ~ omega0)  + geom_ribbon(alpha = 0.2, colour = NA)
 
 ```
 

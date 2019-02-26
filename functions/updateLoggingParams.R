@@ -1,4 +1,4 @@
-updateLoggingParams <- function(mat0, omega0, logIntensity, aG, aM, bG, bM, theta, pdef, psi, e) {
+updateLoggingParams <- function(mat0, matInit, omega0, logIntensity, aG, aM, bG, bM, theta, pdef, psi, e) {
 
   source("functions/volume.R")
   source("functions/deltaVPrediction.R")
@@ -21,6 +21,8 @@ updateLoggingParams <- function(mat0, omega0, logIntensity, aG, aM, bG, bM, thet
   
   # post-logging maturity
   mat1 <- apply(cbind(mat0, deltaV, aG, aM, bG, bM, theta, pdef), 1, t0Prediction)
+  
+  mat1 <- apply(cbind(mat1, matInit), 1, min) ## maturity cannot be higher than the initial value
   
   return(list(mat1, omega1, vextReal))
 }
