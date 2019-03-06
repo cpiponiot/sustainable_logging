@@ -4,7 +4,11 @@ output:
   html_document:
     theme: journal
     keep_md: true
+    number_sections: true
+bibliography: myBiblio.bib
 ---
+
+The aim of this study is to find concrete messages and/or recommendations to be integrated in a future policy brief. 
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, 
@@ -23,15 +27,62 @@ rerun = FALSE   ## if true, heavy codes will be rerun to recalculate results; if
 
 # Timber recovery model
 
+## Quick recap
 
+### Maturity and disturbance
 
-# Defining sustainability of logging 
+The timber recovery model used in this study is decribed in a previous publication [@Piponiot2018]. In this model, the total volume of trees $\geq$ 50 cm DBH is modelled as a function of a new variable, the forest maturity, that is itself estimated using volume dynamics data (volume changes from growth and mortality). 
+
+```{r, fig.height = 5, fig.width=7}
+
+source("functions/volume.R")
+
+tobs = seq(150,180,2)
+vobs = rnorm(length(tobs), volume(tobs, ag = 5, am = 1, bg = 0.008, bm = 0.004, th = 0.035), 1)
+
+curve(volume(x, ag = 5, am = 1, bg = 0.008, bm = 0.004, th = 0.035), 
+      xlim = c(0,300), ylab = expression("Volume ("*m^3*ha^{-1}*")"), xlab = "Estimated maturity", lty = 2)
+points(tobs, vobs, pch = 16)
+legend("topleft", legend = c("Observations", "Predictions"), bty = "n", 
+       lty = c(0, 2), lwd = c(0, 1), pch = c(16, NA))
+
+```
+
+The maturity increases (1 unit per year) when there is no disturbance and decreases abruptly when there is a disturbance, for example selective logging. 
+
+```{r, fig.height = 5, fig.width=7}
+
+library(diagram)
+
+curve(volume(x, ag = 5, am = 1, bg = 0.008, bm = 0.004, th = 0.035), 
+      xlim = c(0,300), ylab = expression("Volume ("*m^3*ha^{-1}*")"), xlab = "Estimated maturity")
+curvedarrow(c(180, volume(180, ag = 5, am = 1, bg = 0.008, bm = 0.004, th = 0.035)), 
+            c(100, volume(100, ag = 5, am = 1, bg = 0.008, bm = 0.004, th = 0.035)), 
+            lwd = 2, lty = 1, lcol = "red", 
+            arr.pos = 0.95, curve = 0.3, dr = 0.01, segment = c(0, 1))
+text(x=140, y = 100, labels = "Disturbance", pos = 2, col=2)
+curvedarrow(c(105, volume(100, ag = 5, am = 1, bg = 0.008, bm = 0.004, th = 0.035) - 4), 
+            c(150, volume(150, ag = 5, am = 1, bg = 0.008, bm = 0.004, th = 0.035) - 5),
+            lty = 2, curve = -0.01, arr.pos = 0.95)
+text(x=145, y = 50, labels = "Recovery", pos = 3)
+
+```
+
+### Proportion of commercial volume
+
+Only part of the total volume is commercial: the pre-logging proportion of commercial volume is $\omega_0$. Because logging targets commercial species, their proportion in the total volume $\omega$ decreases after logging (see the methodology paper for a complete decription of the model [@Piponiot2018]), but can increase again through recruitment of small trees (< 50 cm DBH). 
+
+### Results at the Amazonian scale 
+
+This model was calibrated with data from TmFO plots to make spatially-explicit predictions of post-logging timber recovery in Amazonia (paper submitted to Environmental Research Letters). 
+
+![Timber recovery predictions (% of pre-logging timber stocks) from the model calibrated with TmFO data, as a function of logging cycle length (columns) and logging intensity (rows).](graphs/recovery_amazonia.PNG)
 
 ## Exploring timber volume trajectories
 
-We will first test 5 scenarios and look at the predicted trajectories. The location stays the same (here we use Manaus coordinates in central Amazonia).
+We will first test 4 scenarios and look at the predicted trajectories in one location (here we use Manaus coordinates in central Amazonia).
 
-Four input variables differ among scenarios: 
+Three input variables differ among scenarios: 
 
 - the logging intensity (in m$^3$ha$^{-1}$)
 
@@ -39,23 +90,18 @@ Four input variables differ among scenarios:
 
 - $\omega 0$: the pre-logging proportion of commercial timber 
 
-- $dti$: the pre-logging disturbance factor (between 0 and 1): when $dti=0$, the site has suffered no human disturbance previous to logging; if $dti=1$, the site has been completely disturbed and clearcut. 
-
 ```{r}
 timeLength = 1000
-logIntensity = rep(10, 5); logIntensity[2] = 30
-logCycle = rep(35, 5); logCycle[3] = 65
-omega0 = rep(0.90, 5); omega0[4] = 0.30
-longitude = rep(-60.6, 5) ## location: Manaus
-latitude = rep(-3.3, 5)
-dti = rep(0.10, 5); dti[5] = 0.40
-tabScenario = data.table(scenario = c("default", "highIntensity", "longCycle", "lessCommSpecies", "prevDisturb"), 
-                         logIntensity, logCycle, omega0, dti)
+logIntensity = rep(10, 4); logIntensity[2] = 30
+logCycle = rep(35, 4); logCycle[3] = 65
+omega0 = rep(0.90, 4); omega0[4] = 0.30
+longitude = rep(-60.6, 4) ## location: Manaus
+latitude = rep(-3.3, 4)
+tabScenario = data.table(scenario = c("default", "highIntensity", "longCycle", "lessCommSpecies"), 
+                         intensity = paste(logIntensity, "m3/ha"), cycle = paste(logCycle, "yr"), omega0 = paste0(omega0*100, "%"))
 ```
 
-
-
-The following table summarizes the 5 scenarios and the values of each input variable. 
+The following table summarizes the 4 scenarios and the values of each input variable. 
 
 ```{r}
 tabScenario %>%
@@ -63,121 +109,70 @@ tabScenario %>%
   kable_styling()
 ```
 
-The following figure shows the predicted trajectory of timber volume stocks for each of the 5 scenarios. 
+The following figure shows the predicted trajectory of (commercial) timber volume stocks for each of the 4 scenarios. 
 
-```{r illustr_traj_uncert, fig.height=4, fig.width=10}
+```{r illustr_traj_uncert, fig.height=3, fig.width=12}
 
 source("functions/timbRecovery.R")
 
-recov = timbRecovery(timeLength, logIntensity, logCycle, omega0, longitude, latitude, dti, uncertainties = TRUE)
+recov = timbRecovery(timeLength, logIntensity, logCycle, omega0, longitude, latitude, uncertainties = TRUE)
 
 dfrecov = recov[[1]]
 dfrecov$scenario = tabScenario$scenario[dfrecov$site]
 
 ggplot(dfrecov, aes(x=t, y = med, color = scenario, ymin = inf, ymax = sup)) + 
-  geom_ribbon(aes(fill = scenario), colour = NA, alpha = 0.1) + geom_line() + theme(legend.position = "none") +
-  xlab("Time since first logging event (yr)") + ylab("Commercial timber volume (m3/ha)")  + facet_wrap(~scenario)
+  geom_ribbon(aes(fill = scenario), colour = NA, alpha = 0.1) + geom_line() + 
+  theme(legend.position = "none", panel.background = element_rect(fill = 'white', colour="black")) + 
+  xlab("Time since first logging event (yr)") + ylab("Commercial timber volume (m3/ha)")  + facet_wrap(~scenario, nrow=1) 
 
 ```
 
-The following figure shows the predicted trajectory of timber volume stocks for each of the 5 scenarios. 
+The following figure shows the predicted trajectory of timber volume stocks for each of the 4 scenarios. 
 
-```{r illustr_vextReal_uncert, fig.height=2, fig.width=10}
+```{r illustr_vextReal_uncert, fig.height=3, fig.width=10}
 vextReal = data.table(recov[[2]])
 vextReal$scenario = tabScenario$scenario[vextReal$site]
 
 ggplot(vextReal, aes(x = ncycle, y = med, color = scenario, ymin = inf, ymax = sup)) + 
-  geom_ribbon(aes(fill = scenario), colour = NA, alpha = 0.1) + geom_line() + theme(legend.position = "none") +
-  facet_wrap(~scenario, nrow = 1) + xlab("Number of cutting cycles") + ylab("Volume extracted")
+  geom_ribbon(aes(fill = scenario), colour = NA, alpha = 0.1) + geom_line() + 
+  theme(legend.position = "none", panel.background = element_rect(fill = 'white', colour="black")) + 
+  facet_wrap(~scenario, nrow = 1) + xlab("Number of cutting cycles") + ylab("Volume really extracted (m3/ha)")
 ```
 
-Only the "longCycle" scenario maintains high levels of timber volume and a constant production after 1000 years. 
 
-## What criteria for sustainability? 
+# What criteria for sustainability? 
 
+To explore the conditions upon which logging can be considered sustainable, we must first define sustainability. 
 
+## Constant production
 
+A possible criterion for sustainability is to have a constant production (i.e. no decrease in the volume really extracted) during a given period, e.g. the first 500 years. We illustrate this with the previously-described scenarios.
 
-# What affects sustainability
+```{r illustr_sustainability, fig.height=3, fig.width=10}
+df1 = merge(vextReal, tabScenario, by = "scenario")
+df1$logIntensity = as.numeric(substr(df1$intensity, 1,2))
+df1$logCycle = as.numeric(substr(df1$cycle, 1,2))
 
-For now we consider logging sustainable if the production (max-likelihood) stays constant during the first 100 cycles. 
+df2 = df1[,.(sustainable = (sum(med)/(logIntensity*last(ncycle))) == 1 ), .(scenario, logIntensity)]
+
+ggplot(subset(df1, ncycle*logCycle <= 500), aes(x = ncycle*logCycle, y = med, color = scenario)) + 
+  geom_hline(aes(yintercept = logIntensity), lty = 2 ) +
+  geom_line() + geom_text(data = df2, aes(x = 250, y = 50, label = paste("sustainable:", sustainable))) +
+  theme(legend.position = "none", panel.background = element_rect(fill = 'white', colour="black")) + 
+  facet_wrap(~scenario, nrow = 1) + xlab("Number of cutting cycles") + ylab("Volume really extracted (m3/ha)")
+
+```
+
 
 ```{r}
 timeLength = 1000
 
-tabScenario = data.table(expand.grid(logIntensity = seq(5,35,5), 
-                                     logCycle = seq(10,100,10), 
-                                     omega0 = seq(0.1,1,0.1), 
-                                     dti = seq(0,0.7,0.1)))
-tabScenario$longitude = -60.6
-tabScenario$latitude = -3.3
-
-if (calc_data) {
-  recov = timbRecovery(timeLength, tabScenario$logIntensity, 
-                       tabScenario$logCycle, tabScenario$omega0, 
-                       tabScenario$longitude, tabScenario$latitude, 
-                       tabScenario$dti, uncertainties = FALSE)
-  
-  vextReal = data.table(tabScenario, recov[[2]])
-  
-  dfSustain = vextReal[,.(pVextTot = sum(vextReal)/(logIntensity*last(ncycle))), .(logIntensity, logCycle, omega0, dti)]
-  save(dfSustain, file = "Rdata_files/dfvext_sustain_manaus.Rdata")
-  
-} else load("Rdata_files/dfvext_sustain_manaus.Rdata")
-
-```
-
-## Logging cycle and intensity
-
-The following picture shows the proportion of extracted volume compared to the expected logging intensity over the first 100 cycles. If this proportion is 1, then logging can be considered sustainable. 
-
-First we use a "perfect conditions" scenario with $\omega_0 = 1$ (all species are commercial) and that $dti = 0$ (no pre-logging anthropogenic disturbance). 
-
-```{r, fig.height = 3, fig.width=5}
-dfSustain$sustainable = (dfSustain$pVextTot > 0.99)
-
-ggplot(subset(dfSustain, omega0==1 & dti == 0) ) + 
-  geom_raster(aes(x = logIntensity, y = logCycle, fill = pVextTot)) + 
-  theme(aspect.ratio=1) 
-ggplot(subset(dfSustain, omega0==1 & dti == 0) ) + 
-  geom_raster(aes(x = logIntensity, y = logCycle, fill = sustainable)) + 
-  theme(aspect.ratio=1) 
-```
-
-## Proportion of commercial species (ie changing $\omega_0$)
-
-```{r, fig.height = 4, fig.width=10}
-dfSustain$lab_omega0 = factor(dfSustain$omega0)
-levels(dfSustain$lab_omega0) = paste0("omega0 = ", as.numeric(levels(dfSustain$lab_omega0))*100, "%")
-
-ggplot(subset(dfSustain,dti == 0) ) + 
-  geom_raster(aes(x = logIntensity, y = logCycle, fill = sustainable)) + 
-  theme(aspect.ratio=1) + facet_wrap( ~ lab_omega0, nrow = 2)
-```
-
-## Effect of adding prelogging anthropogenic disturbances (ie changing $dti$)
-
-```{r, fig.height = 4, fig.width=10}
-ggplot(subset(dfSustain, omega0 == 1) ) + 
-  geom_raster(aes(x = logIntensity, y = logCycle, fill = sustainable)) + 
-  theme(aspect.ratio=1) + facet_wrap( ~ paste0("dti = ", dti*100, "%"), nrow = 2)
-```
-
-
-## Location
-
-For now we consider logging sustainable if the production (max-likelihood) stays constant during the first 100 cycles. 
-
-```{r}
-timeLength = 1000
-
-coordinates = data.table(siteName = c("Itoupe", "Paragominas", "RioBranco", "Iquitos"), 
-                         longitude = c(-53.6, -47.4, -68, -73.4), 
-                         latitude = c(3.5, -3.0, -10, -3.75))
+coordinates = data.table(siteName = c("Itoupe", "Paragominas", "RioBranco", "Iquitos", "Manaus"), 
+                         longitude = c(-53.6, -47.4, -68, -73.4, -60.6), 
+                         latitude = c(3.5, -3.0, -10, -3.75, -3.3))
 tabScenario = data.table(expand.grid(logIntensity = seq(5,35,5), 
                                      logCycle = seq(10,100,10), 
                                      omega0 = seq(0.2,1,0.2), 
-                                     dti = seq(0,0.6,0.2), 
                                      siteName = coordinates$siteName))
 tabScenario = merge(tabScenario, coordinates, by = "siteName") 
 
@@ -185,49 +180,89 @@ if (calc_data) {
   recov = timbRecovery(timeLength, tabScenario$logIntensity, 
                        tabScenario$logCycle, tabScenario$omega0, 
                        tabScenario$longitude, tabScenario$latitude, 
-                       tabScenario$dti, uncertainties = FALSE)
+                       uncertainties = FALSE)
   
-  vextReal = data.table(tabScenario, recov[[2]])
-  dfvextReal = melt(vextReal, id.vars = colnames(tabScenario), variable.name = "ncycle", value.name = "vext")
-  dfvextReal$ncycle = as.numeric(gsub("V", "", dfvextReal$ncycle))
+  vextReal_sites = data.table(tabScenario, recov[[2]])
   
-  dfSustain_sites = dfvextReal[,.(pVextTot = sum(vext)/(logIntensity*last(ncycle))), .(logIntensity, logCycle, omega0, dti, siteName)]
-  save(dfSustain_sites, file = "Rdata_files/dfvext_sustain_sites.Rdata")
+  list_df_sustain = lapply(seq(100, 1000, 100), function(TL) {
+    df_sites = subset(vextReal_sites, logCycle*ncycle <= TL)
+    dfSustain = df_sites[,.(pVextTot = sum(vextReal)/(logIntensity*last(ncycle)), timeLength = TL), .(logIntensity, logCycle, omega0, siteName)]
+    return(dfSustain)
+  })
   
-} else load("Rdata_files/dfvext_sustain_sites.Rdata")
+  dfSustain_sites = do.call(rbind, list_df_sustain)
+  
+  save(dfSustain_sites, file = "Rdata_files/dfvext_sites.Rdata")
+  
+} else load("Rdata_files/dfvext_sites.Rdata")
 
-load("Rdata_files/dfvext_sustain_manaus.Rdata")
-
-dfSustain$siteName = "Manaus"
-dfSustain = subset(dfSustain, !(omega0 %in% seq(0.1,9,0.2)) &
-                     !(dti %in% seq(0.1,0.5,0.2)))
-dfSustain = rbind(dfSustain, dfSustain_sites)
 ```
 
+> If you have some other ideas to define sustainability, this is open to any suggestion. 
 
-### Changing the proportion of commercial species
+## Effect of logging cycle and intensity
+
+First we simulate timber recovery with $\omega_0 = 1$ (i.e. all species are commercial), and the conditions of central Amazonia (Manaus coordinates). Timber production is considered sustainble when the production is maintained to its desired level (i.e. the logging intensity) during the first 500 years. 
+
+```{r, fig.height = 3, fig.width=5}
+dfSustain_sites$sustainable = (dfSustain_sites$pVextTot > 0.99)
+
+ggplot(subset(dfSustain_sites, siteName == "Manaus" & omega0==1 & timeLength == 500) ) + 
+  geom_raster(aes(x = logIntensity, y = logCycle, fill = sustainable)) + 
+  theme(aspect.ratio=1) + labs(x="Logging intensity (m3/ha)", y = "Cutting cycle (yrs)")
+```
+
+> As expected, the chance of timber production being sustainable increases with longer cutting cycles and lower logging intensities. 
+
+## Effect of location and proportion of commercial timber ($\omega_0$)
+
+To explore how the location and the proportion of commercial timber can influence the sustainability of timber production, we simulated timber dynamics during the first 500 years for 5 locations (Iquitos in Peru, Itoupe in French Guiana, Manaus in Amazonas, Brazil, Paragominas in Para, Brazil and Rio Branco in Acre, Brazil). 
+
+For each of these 5 locations we tested 5 proportions of commercial timber (from 20% to 100%), with varying logging intensities and cutting cycles. Results are presented in the following picture. 
 
 ```{r, fig.height = 10, fig.width=10}
-dfSustain$sustainable = (dfSustain$pVextTot > 0.99)
 
-dfSustain$lab_omega0 = factor(dfSustain$omega0)
-levels(dfSustain$lab_omega0) = paste0("omega0 = ", as.numeric(levels(dfSustain$lab_omega0))*100, "%")
+dfSustain_sites$lab_omega0 = factor(dfSustain_sites$omega0)
+levels(dfSustain_sites$lab_omega0) = paste0("omega0 = ", as.numeric(levels(dfSustain_sites$lab_omega0))*100, "%")
 
-ggplot(subset(dfSustain,dti == 0) ) + 
+ggplot(subset(dfSustain_sites, timeLength == 500)) + 
   geom_raster(aes(x = logIntensity, y = logCycle, fill = sustainable)) + 
-  theme(aspect.ratio=1) + facet_grid( siteName ~ lab_omega0)
+  theme(aspect.ratio=1) + facet_grid( siteName ~ lab_omega0) + 
+  labs(x="Logging intensity (m3/ha)", y = "Cutting cycle (yrs)")
+
 ```
 
-### Changing pre-logging maturity
+> The proportion of commerical timber is a strong predictor of timber production sustainability. Sustainability also depends to some degree on the location. 
 
-```{r, fig.height = 10, fig.width=10}
-ggplot(subset(dfSustain, omega0 == 1) ) + 
+## Effect of time period considered
+
+Back to $\omega_0=1$ and the Manaus location, now we explore how the period of simulations (until now: 500 years) affects the assessmnet of sustainability. 
+
+```{r, fig.height=4, fig.width = 10}
+dfSustain_sites$fac_time = factor(dfSustain_sites$timeLength)
+levels(dfSustain_sites$fac_time) = paste(levels(dfSustain_sites$fac_time), "yrs")
+
+ggplot(subset(dfSustain_sites, omega0 == 1 & siteName == "Manaus")) + 
   geom_raster(aes(x = logIntensity, y = logCycle, fill = sustainable)) + 
-  theme(aspect.ratio=1)  + facet_grid( siteName ~ paste0("dti = ", dti*100, "%"))
+  theme(aspect.ratio=1) + facet_wrap( ~ fac_time, nrow = 2) + 
+  labs(x="Logging intensity (m3/ha)", y = "Cutting cycle (yrs)")
+
 ```
 
+> It seems that after 500 years, increasing the period of time does not change much the results: this is good news, we can stick with a 500-yr period!
 
-# How much longer can we harvest at current rates? 
+
+# How much longer can we harvest at current rates?
+
+Another question is the time that we can maintain current timber production at the Amazonian scale (appr. 35 Mm$3$ per year) before the there is not enough timber to meet this demand. 
+
+Here we make the hypothesis that all potential production forests are logged. This can be either all forests that are not protected ("All unprotected") or unprotected forests that are $<$ 25 km from a motorable road or track ("Currently available"). 
+
+We choose either to set the cutting cycle to 35 years and calculate the logging intensity needed to reach the 35 Mm$^3$/yr target; or set the logging intensity to 20 m3/ha and estimate the logging cycle needed to reach the 35 Mm$^3$/yr target. 
+
+Because the proportion of commercial timber affects the timber recovery, we tested 5 different values from 20% to 100% of commercial timber. 
+
+The results are presented in 2 graphs: the total timber stocks (over all logged areas in Amazonia) and the total timber production. 
 
 ```{r available area}
 
@@ -236,72 +271,72 @@ timeLength <- 200
 prod_target <- 35 * 1e6
 
 if (rerun) {
-  
+
   load("variables and parameters/areaLogging.Rdata")
-  
+
   ## offset can be either logging intensity (20 m3/ha) or logging cycle length (35 years)
   logIntensity_med <- 20
   logCycle_med <- 35
-  
+
   ## estimate the corresponding intensity/cycle to reach the production target
   ## 2 options: with forests currently available for logging or with all unprotected forests
   logCycle_calc <- floor(sum(areaLogging$areaTot * 100 * areaLogging$pCurrentAvail) * logIntensity_med / prod_target)  ## (*100): km2 -> ha
   logCycle_calc_max <- floor(sum(areaLogging$areaTot * 100 * areaLogging$pNotProtect) * logIntensity_med / prod_target)
-  
+
   logIntensity_calc <- floor(logCycle_med * prod_target / sum(areaLogging$areaTot * 100 * areaLogging$pCurrentAvail))  ## (*100): km2 -> ha
   logIntensity_calc_max <- floor(logCycle_med * prod_target / sum(areaLogging$areaTot * 100 * areaLogging$pNotProtect))
-  
+
   ## create the data table with all variables combinations
-  dfVariables = data.table(logIntensity = c(rep(logIntensity_med, 2), logIntensity_calc, logIntensity_calc_max), 
-                        logCycle = c(logCycle_calc, logCycle_calc_max, rep(logCycle_med, 2)), 
-                        scenario = rep(c("current","roadBuilding"), 2), 
+  dfVariables = data.table(logIntensity = c(rep(logIntensity_med, 2), logIntensity_calc, logIntensity_calc_max),
+                        logCycle = c(logCycle_calc, logCycle_calc_max, rep(logCycle_med, 2)),
+                        scenario = rep(c("current","roadBuilding"), 2),
                         offSet = rep(c("intens","cycle"), each = 2), id = 1:4)
   dfVariables = merge(dfVariables, expand.grid(id = 1:4, omega0 = seq(0.2, 1, 0.2)), by = "id")
-  
+
   areaLogging$site = 1:nrow(areaLogging)
-  areaLogging_melt = melt(data.table(areaLogging), id.vars = c("long","lat","areaTot","site"), 
+  areaLogging_melt = melt(data.table(areaLogging), id.vars = c("long","lat","areaTot","site"),
                           variable.name = "scenario", value.name = "pArea", variable.factor = TRUE)
   levels(areaLogging_melt$scenario) = c("current","roadBuilding")
-  
+
   source("functions/timbRecovery.R")
-  
+
   # Calculate the number of cores
   no_cores <- detectCores() - 2
-  
+
   # Initiate cluster
   cl <- makeCluster(no_cores)
-  
+
   clusterEvalQ(cl, library(data.table))
-  
+
   clusterExport(cl, varlist = c("timbRecovery", "dfVariables", "timeLength", "areaLogging_melt", "rtruncnorm"))
-  
+
   recovChangOmega <- parSapply(cl, 1:nrow(dfVariables), function(i) {
-    
+
     df_area = subset(areaLogging_melt, scenario == dfVariables$scenario[i])
-    recov = timbRecovery(timeLength, logIntensity = dfVariables$logIntensity[i], 
-                         logCycle = dfVariables$logCycle[i], omega0 = dfVariables$omega0[i], 
-                         longitude = df_area$long, latitude = df_area$lat, 
+    recov = timbRecovery(timeLength, logIntensity = dfVariables$logIntensity[i],
+                         logCycle = dfVariables$logCycle[i], omega0 = dfVariables$omega0[i],
+                         longitude = df_area$long, latitude = df_area$lat,
                          area = df_area$areaTot*df_area$pArea)
     return(recov)
-    
+
   })
-  
+
   stopCluster(cl)
-  
+
   volumeVarAm = do.call(rbind, lapply(1:nrow(dfVariables), function(i) data.table(recovChangOmega[[1,i]], idVar = i)))
   dfVariables$idVar = 1:nrow(dfVariables)
   volumeVarAm = merge(volumeVarAm, dfVariables[,-"id"], by = "idVar")
-  
+
   vextVarAm = do.call(rbind, lapply(1:nrow(dfVariables), function(i) data.table(recovChangOmega[[2,i]], idVar = i)))
   dfVariables$idVar = 1:nrow(dfVariables)
   vextVarAm = merge(vextVarAm, dfVariables[,-"id"], by = "idVar")
-  
+
   save(volumeVarAm, vextVarAm, file = "Rdata_files/timeToEsgote.Rdata")
-  
+
 } else { load("Rdata_files/timeToEsgote.Rdata") }
 
 
-## annualise harvests 
+## annualise harvests
 
 annualise = function(X, period, X0) {
   mat = matrix(X0 / period, ncol = length(X), nrow = period)
@@ -311,9 +346,9 @@ annualise = function(X, period, X0) {
   return(colSums(mat))
 }
 
-volumeVarAm_ann = volumeVarAm[order(t) , .(inf = annualise(inf, logCycle, first(inf)), 
-                                           med = annualise(med, logCycle, first(inf)), 
-                                           sup = annualise(sup, logCycle, first(inf)), t), 
+volumeVarAm_ann = volumeVarAm[order(t) , .(inf = annualise(inf, logCycle, first(inf)),
+                                           med = annualise(med, logCycle, first(inf)),
+                                           sup = annualise(sup, logCycle, first(inf)), t),
                               .(idVar,logIntensity, logCycle, scenario, offSet, omega0)]
 ```
 
@@ -329,7 +364,7 @@ levels(volumeVarAm_ann$offSet) = c("Cycle = 35 yrs", "Intensity = 20 m3/ha")
 volumeVarAm_ann$scenario = factor(volumeVarAm_ann$scenario)
 levels(volumeVarAm_ann$scenario) = c("Currently available","All unprotected")
 
-ggplot(volumeVarAm_ann, aes(x=t, y = med/1e8, ymin = inf/1e8, ymax = sup/1e8, colour = offSet, fill = offSet)) + geom_line() + 
+ggplot(volumeVarAm_ann, aes(x=t, y = med/1e8, ymin = inf/1e8, ymax = sup/1e8, colour = offSet, fill = offSet)) + geom_line() +
   facet_grid( scenario ~ omega0, scales = "free")  + geom_ribbon(alpha = 0.2, colour = NA) + labs(x = "Time (yrs)", y = "Timber volume stocks (Mm3/ha)")
 ```
 
@@ -344,12 +379,14 @@ levels(vextVarAm$offSet) = c("Cycle = 35 yrs", "Intensity = 20 m3/ha")
 vextVarAm$scenario = factor(vextVarAm$scenario)
 levels(vextVarAm$scenario) = c("Currently available","All unprotected")
 
-ggplot(vextVarAm, aes(x=(ncycle-1)*logCycle, y = med/logCycle/1e8, ymin = inf/logCycle/1e8, ymax = sup/logCycle/1e8, 
-                      colour = offSet, fill = offSet)) + geom_line() + 
+ggplot(vextVarAm, aes(x=(ncycle-1)*logCycle, y = med/logCycle/1e8, ymin = inf/logCycle/1e8, ymax = sup/logCycle/1e8,
+                      colour = offSet, fill = offSet)) + geom_line() +
   facet_grid( scenario ~ omega0)  + geom_ribbon(alpha = 0.2, colour = NA) + labs(x = "Time (yrs)", y = "Timber production (Mm3/yr)")
 
 ```
 
-> In many cases timber production is way under the 35 Mm3/yr target because many grid cells do not have enough timber (especially when only 20% of the volume is commercial). 
+> In many cases timber production is way under the 35 Mm$^3$/yr target because many grid cells do not have enough timber (especially when only 20% of the volume is commercial). 
 
-> Optimise timber intensities to reach target? 
+> In one given simulation, all areas in Amazonia are logged with the same logging intensity and cutting cycle: however they do not all have the same production potential. How could we introduce some spatial variability? 
+
+# References
