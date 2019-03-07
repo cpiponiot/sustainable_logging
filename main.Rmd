@@ -5,6 +5,8 @@ output:
     theme: journal
     keep_md: true
     number_sections: true
+    toc: yes
+    toc_float: yes
 bibliography: myBiblio.bib
 ---
 
@@ -127,7 +129,7 @@ ggplot(dfrecov, aes(x=t, y = med, color = scenario, ymin = inf, ymax = sup)) +
 
 ```
 
-The following figure shows the predicted trajectory of timber volume stocks for each of the 4 scenarios. 
+The following figure shows the predicted timber production (m3/ha) at each cutting cycle (30 total) for each of the 4 scenarios. When there is not enough commercial timber left at the end of a cutting cycle to reach the desired logging intensity, the total production decreases (for example in the highIntensity and the lessCommonSpecies scenarios).
 
 ```{r illustr_vextReal_uncert, fig.height=3, fig.width=10}
 vextReal = data.table(recov[[2]])
@@ -353,10 +355,10 @@ volumeVarAm_ann = volumeVarAm[order(t) , .(inf = annualise(inf, logCycle, first(
 ```
 
 
-```{r, fig.height=4, fig.width = 12}
+```{r, fig.height=4, fig.width = 10}
 
 volumeVarAm_ann$omega0 = factor(volumeVarAm_ann$omega0)
-levels(volumeVarAm_ann$omega0) = paste0("Commercial: ",as.numeric(levels(volumeVarAm_ann$omega0))*100,"%")
+levels(volumeVarAm_ann$omega0) = paste0("omega0 = ",as.numeric(levels(volumeVarAm_ann$omega0))*100,"%")
 
 volumeVarAm_ann$offSet = factor(volumeVarAm_ann$offSet)
 levels(volumeVarAm_ann$offSet) = c("Cycle = 35 yrs", "Intensity = 20 m3/ha")
@@ -365,13 +367,14 @@ volumeVarAm_ann$scenario = factor(volumeVarAm_ann$scenario)
 levels(volumeVarAm_ann$scenario) = c("Currently available","All unprotected")
 
 ggplot(volumeVarAm_ann, aes(x=t, y = med/1e8, ymin = inf/1e8, ymax = sup/1e8, colour = offSet, fill = offSet)) + geom_line() +
-  facet_grid( scenario ~ omega0, scales = "free")  + geom_ribbon(alpha = 0.2, colour = NA) + labs(x = "Time (yrs)", y = "Timber volume stocks (Mm3/ha)")
+  facet_grid( scenario ~ omega0, scales = "free")  + geom_ribbon(alpha = 0.2, colour = NA) + 
+  labs(x = "Time (yrs)", y = "Timber volume stocks (Mm3/ha)") + theme(legend.position = "top")
 ```
 
 
-```{r, fig.height=4, fig.width = 12}
+```{r, fig.height=4, fig.width = 10}
 vextVarAm$omega0 = factor(vextVarAm$omega0)
-levels(vextVarAm$omega0) = paste0("Commercial: ",as.numeric(levels(vextVarAm$omega0))*100,"%")
+levels(vextVarAm$omega0) = paste0("omega0 = ",as.numeric(levels(vextVarAm$omega0))*100,"%")
 
 vextVarAm$offSet = factor(vextVarAm$offSet)
 levels(vextVarAm$offSet) = c("Cycle = 35 yrs", "Intensity = 20 m3/ha")
@@ -381,7 +384,8 @@ levels(vextVarAm$scenario) = c("Currently available","All unprotected")
 
 ggplot(vextVarAm, aes(x=(ncycle-1)*logCycle, y = med/logCycle/1e8, ymin = inf/logCycle/1e8, ymax = sup/logCycle/1e8,
                       colour = offSet, fill = offSet)) + geom_line() +
-  facet_grid( scenario ~ omega0)  + geom_ribbon(alpha = 0.2, colour = NA) + labs(x = "Time (yrs)", y = "Timber production (Mm3/yr)")
+  facet_grid( scenario ~ omega0)  + geom_ribbon(alpha = 0.2, colour = NA) + 
+  labs(x = "Time (yrs)", y = "Timber production (Mm3/yr)") + theme(legend.position = "top")
 
 ```
 
