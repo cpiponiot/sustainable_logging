@@ -5,6 +5,8 @@ output:
     theme: journal
     keep_md: true
     number_sections: true
+    toc: yes
+    toc_float: yes
 bibliography: myBiblio.bib
 ---
 
@@ -93,7 +95,7 @@ The following figure shows the predicted trajectory of (commercial) timber volum
 
 ![](main_files/figure-html/illustr_traj_uncert-1.png)<!-- -->
 
-The following figure shows the predicted trajectory of timber volume stocks for each of the 4 scenarios. 
+The following figure shows the predicted timber production (m3/ha) at each cutting cycle (30 total) for each of the 4 scenarios. When there is not enough commercial timber left at the end of a cutting cycle to reach the desired logging intensity, the total production decreases (for example in the highIntensity and the lessCommonSpecies scenarios).
 
 ![](main_files/figure-html/illustr_vextReal_uncert-1.png)<!-- -->
 
@@ -146,11 +148,24 @@ Another question is the time that we can maintain current timber production at t
 
 Here we make the hypothesis that all potential production forests are logged. This can be either all forests that are not protected ("All unprotected") or unprotected forests that are $<$ 25 km from a motorable road or track ("Currently available"). 
 
-We choose either to set the cutting cycle to 35 years and calculate the logging intensity needed to reach the 35 Mm$^3$/yr target; or set the logging intensity to 20 m3/ha and estimate the logging cycle needed to reach the 35 Mm$^3$/yr target. 
+We first set the cutting cycle length to a value $trot$ (eg 35 years). We want the logging intensity to be proportional to the amount of timber available in one pixel $p$: 
+
+$$int_p = K \cdot vol_p$$ 
+
+where $int_p$ is the logging intensity (in m$^3$ha$^{-1}$), K a constant (no dimension) and $vol_p$ the pre-logging timber volume in a pixel $p$ (in m$^3$ha$^{-1}$). 
+
+The annual timber production is: 
+
+$$Prod = \frac{\sum (int_p \cdot area_p)}{trot}$$
+where $area_p$ is the area of potential production forests in one pixel $p$. 
+
+We thus have: 
+
+$$K = \frac{Prod \cdot trot}{\sum (vol_p \cdot area_p)} $$
 
 Because the proportion of commercial timber affects the timber recovery, we tested 5 different values from 20% to 100% of commercial timber. 
 
-The results are presented in 2 graphs: the total timber stocks (over all logged areas in Amazonia) and the total timber production. 
+The results are presented in 2 graphs: the total timber stocks (over all logged areas in Amazonia) and the total timber production. The first row corresponds to simulations with all currently available permanent production forests (not protected and < 25 km from a road or motorable track); the second row corresponds to simulations with 
 
 
 
@@ -160,8 +175,10 @@ The results are presented in 2 graphs: the total timber stocks (over all logged 
 
 ![](main_files/figure-html/unnamed-chunk-10-1.png)<!-- -->
 
-> In many cases timber production is way under the 35 Mm$^3$/yr target because many grid cells do not have enough timber (especially when only 20% of the volume is commercial). 
+> When the proportion of commercial timber is low, the timber production decreases rapidly and the demand cannont be met after the first logging cycle. In this case, alternative timber sources may be needed quickly. 
 
-> In one given simulation, all areas in Amazonia are logged with the same logging intensity and cutting cycle: however they do not all have the same production potential. How could we introduce some spatial variability? 
+> Increasing the proportion of timber (by harvesting more species) can increase the probability of ensuring sustainable production.
+
+
 
 # References

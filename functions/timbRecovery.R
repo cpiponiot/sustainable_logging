@@ -4,7 +4,7 @@ library(truncnorm)
 ## sites' outputs (timber volume, extrated volume) multiplied by their area
 
 timbRecovery = function(timeLength, logIntensity, logCycle, omega0, longitude, latitude, dti = NA, 
-                        uncertainties = TRUE, area = NA) {
+                        uncertainties = TRUE, area = NA, firstIntensity = logIntensity) {
   ## without error propagation: timbRecovery
   
   if ( length(longitude) != length(latitude) )
@@ -109,9 +109,12 @@ timbRecovery = function(timeLength, logIntensity, logCycle, omega0, longitude, l
   
   for (i in 1:nCycles) {
     
+    updatedLogIntens = dfPred$logIntensity
+    if (i == 1) { updatedLogIntens = firstIntensity }
+      
     ## update stand parameters (maturity, proportion of commercial species) after logging
     newParams = updateLoggingParams(mat0 = matPreLog[,i], matInit = matPreLog[,1], omega0 = omPreLog[,i], 
-                                    logIntensity = dfPred$logIntensity, aG = dfPred$aG, aM = dfPred$aM, 
+                                    logIntensity = updatedLogIntens, aG = dfPred$aG, aM = dfPred$aM, 
                                     bG = dfPred$bP, bM = dfPred$bM, theta = dfPred$theta, 
                                     pdef = dfPred$pdef, psi = dfPred$rho, e = dfPred$e)
     vextReal = cbind(vextReal, newParams[[3]])
