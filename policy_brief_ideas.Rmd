@@ -1,0 +1,39 @@
+---
+title: "Plicy brief - first ideas"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Official harvest intensities are not sustainable
+
+Timber volumes do not recover a 10-20 m3/ha harvest in 35 years (Brazilian Amazon // Peru, Bolivia: even less, 20 years cycle) 
+
+
+# Overharvesting will lead to stock depletion in XXX decades
+
+at current rates: timber stocks in available production forests will be gone by 20XX => need to find a solution
+
+
+#	Drastic reduction in harvest levels are needed
+
+-> reduce to 10 m3/ha every 65 years to maintain stocks [plus account for regional variability?]
+
+#	Reducing harvest intensities will not be enough to meet current timber demands
+
+=> not enough area to maintain current production rates (~ 30 Mm3 in the whole region/ better estimates?)
+
+# Possible future trajectories 
+
+2 solutions: 
+
+- drastically increase the area available (potential consequences on other ecosystem services, in particular for biodiversity conservation) 
+
+- or increase silviculture and restoration of degraded forests -> will probably need fundings (eg through payments for environmental services)
+
+
+#	Intenisve forest management and climate change adaptation
+
+betting on natural forests for future timber production = risky (climate changes, fires, etc: what will we have tomorrow?) // intensively managed forests (plantations, restored forests) can be managed to increase adaptation to foreseen changes (through species selection, etc)
