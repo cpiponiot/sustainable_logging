@@ -1,39 +1,87 @@
 ---
-title: "Plicy brief - first ideas"
+title: "Policy brief - first ideas"
 output: word_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, 
+                      root.dir = rprojroot::find_rstudio_root_file())
+
+library(sp)
+library(rgdal)
+library(raster)
+library(data.table)
+library(ggplot2)
+calc=FALSE
 ```
 
 # Official harvest intensities are not sustainable
 
-Timber volumes do not recover a 10-20 m3/ha harvest in 35 years (Brazilian Amazon // Peru, Bolivia: even less, 20 years cycle) 
+Timber volumes do not recover a 10-20 m3/ha harvest in 35 years (Brazilian Amazon // Peru, Bolivia: even less, 20 years cycle), even if we harvest all species with potential commercial value
+
+```{r, fig.cap="Maximum proprotion of timber recovery in Amazonia after a 20 m3/ha harvest at the end of a 30 years cutting cycle. All trees > 50 cm dbh from species with potential commercial value are considered as timber."}
+
+amazonia = readOGR("C:/Users/camille.piponiot/Google Drive/maps/amazonia","BassinAmazonien")
+amazonia <- spTransform(amazonia, CRS("+proj=longlat +datum=WGS84"))
+
+grd <- expand.grid(long=seq(from=-79.5, to=-44.5, by=1), lat=seq(from=-19.5, to=9.5, by=1))
+coordinates(grd) <- ~ long+lat
+gridded(grd) <- TRUE
+proj4string(grd) <- proj4string(amazonia)
+grd = grd[!is.na(over(spTransform(grd,proj4string(amazonia)), amazonia))]
+
+om0 = raster("variables and parameters/map_omega0.tif")
+grd$om0 = extract(om0, grd)
+grd$site = 1:nrow(grd)
+
+source("functions/timbRecovery.R")
+
+if (calc){
+  recov = timbRecovery(timeLength = 30, logIntensity = 20, logCycle = 30, omega0 = grd$om0, 
+                       longitude = grd$long, latitude = grd$lat, uncertainties = TRUE)
+  save(recov, file = "Rdata_files/amazonia_recov.Rdata")
+} else (load("Rdata_files/amazonia_recov.Rdata"))
+
+dfrecov = recov[[1]][, .(precov = med[t==30]/med[t==0]), .(site)]
+dfrecov = merge(dfrecov, grd, by = "site")
+
+ggplot(dfrecov, aes(x=long, y = lat, fill=precov)) + geom_raster() + coord_equal() + 
+  scale_fill_gradientn(colours = c("red","orange","yellow")) + 
+  guides(fill = guide_colourbar(title = "", title.position="right", title.vjust = 3,
+                                title.theme = element_text(angle=90), barheight=25, barwidth=0.7))
+
+```
 
 
-# Overharvesting will lead to stock depletion in XXX decades
+# Overharvesting will lead to stock depletion in just a few decades
 
 at current rates: timber stocks in available production forests will be gone by 20XX => need to find a solution
 
+![](graphs/temp_timber_decrease.png)
+
+-> adapt with 20 m3 in the first year then 10 m3/yr
 
 #	Drastic reduction in harvest levels are needed
 
--> reduce to 10 m3/ha every 65 years to maintain stocks [plus account for regional variability?]
+-> reduce to ca. 10 m3/ha every 65 years to maintain stocks [plus account for regional variability?]
+(cf previous figure)
 
 #	Reducing harvest intensities will not be enough to meet current timber demands
 
-=> not enough area to maintain current production rates (~ 30 Mm3 in the whole region/ better estimates?)
+=> not enough area to maintain current production rates (~ 20-30 Mm3 in the whole region/ better estimates?)
+total available area: 190 Mha
+total production per ha per year: 10/65 x 60% (area suitable for logging in a concession) => max production = 190 x 10/65 x 0.58 = 17 Mm3 < target
 
 # Possible future trajectories 
 
-2 solutions: 
+2 potential trajectories to harvest the timber-production target: 
 
 - drastically increase the area available (potential consequences on other ecosystem services, in particular for biodiversity conservation) 
 
 - or increase silviculture and restoration of degraded forests -> will probably need fundings (eg through payments for environmental services)
 
 
-#	Intenisve forest management and climate change adaptation
+#	Intensive forest management and climate change adaptation
 
 betting on natural forests for future timber production = risky (climate changes, fires, etc: what will we have tomorrow?) // intensively managed forests (plantations, restored forests) can be managed to increase adaptation to foreseen changes (through species selection, etc)
