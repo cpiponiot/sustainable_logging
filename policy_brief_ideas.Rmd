@@ -1,13 +1,13 @@
 ---
 title: "Policy brief - first ideas"
 output: word_document
+bibliography: myBiblio.bib
 ---
 
 ```{r setup, include=FALSE}
 
-knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, 
+knitr::opts_chunk$set(echo = FALSE, results='hide', message=FALSE, warning=FALSE,
                       root.dir = rprojroot::find_rstudio_root_file())
-
 library(sp)
 library(rgdal)
 library(raster)
@@ -16,72 +16,222 @@ library(ggplot2)
 calc=FALSE
 ```
 
+
+# Abstract
+
+Since the 1970s, selective logging has become the main silvicultural system in the tropics. This system is based on very simple rules: the harvest of a few commercial trees having reached a minimum cutting diameter, and a cutting cycle that is generally between 20 and 35 years. In the past decades, numerous studies have shown that in most cases these cutting cycles are insufficient to recover harvested timber volumes. Low-impact techniques have been recommended to reduce the damage caused by logging operations and improve tree regeneration and growth, but these techniques have also been shown their limits. 
+
+Despite the slow recovery of selectively logged forests, this harvest system has been continuously used because there are still several hundred million hectares of intact tropical forests, particularly Amazonia where 400 million hectares [xx check potapov 2017] are still considered as intact. These intact forests are however crucial for carbon sequestretion and biodiverisity conservation, among other ecosystem services that could be reduced if these forests were over-harvested.  
+
+The main objective of this paper is to show the limits of selective logging to sustainably meet the demand for wood in the Amazon and to suggest alternatives for future action. These initiatives could be part of a forest transition that we consider to be urgent in order to conserve the Amazon rainforest. [Our study tested several selective logging scenarios by varying three main variables: cutting cycle length, harvest intensity, and commercial species pool. We have identified under what conditions the selective logging was sustainable from a timber production point of view and what was its production capacity vis-à-vis the demand for timber.]
+This paper presents first of all some contextual elements specific to the production of roundwood timber in the Amazon and the studies carried out on the sustainability of the system, we will then present the results of the various tested scenarios, and finally we propose alternative paths for a forest transition in the Amazon.
+
 # Official harvest intensities are not sustainable
 
-Timber volumes do not recover a 10-20 m3/ha harvest in 35 years (Brazilian Amazon // Peru, Bolivia: even less, 20 years cycle), even if we harvest all species with potential commercial value
+When only a few species are harvested for timber, timber volumes quickly drop down after repeated 20 $m^3ha^{-1}$ harvests with 35 years cutting cycles (eg Figure 1a, 30% of total volume has commercial value). 
 
-```{r, fig.cap="Maximum proprotion of timber recovery in Amazonia after a 20 m3/ha harvest at the end of a 30 years cutting cycle. All trees > 50 cm dbh from species with potential commercial value are considered as timber."}
+Even when all species with potential commercial value are considered, 35 year cutting cycles are not enough to recover the 20 $m^3ha^{-1}$ harvests (eg Figure 1b, 90% of total volume has commercial value, similar to values in Amazonia [@Piponiot2019]). 
 
-amazonia = readOGR("C:/Users/camille.piponiot/Google Drive/maps/amazonia","BassinAmazonien")
-amazonia <- spTransform(amazonia, CRS("+proj=longlat +datum=WGS84"))
+```{r illustr_traj_uncert, fig.height=6, fig.width=10, fig.cap = "Figure 1: Commercial timber recovery in Amazonia under different scenarios: (a) 20 m3/ha every 35 years, with only 30% of timber volumes considered as commercial, (b) 20 m3/ha every 35 years, with 90% of timber volumes considered as commercial, (c) 10 m3/ha every 35 years, with 90% of timber volumes considered as commercial, (d) 20 m3/ha every 65 years, with 90% of timber volumes considered as commercial, (e) 10 m3/ha every 65 years, with 90% of timber volumes considered as commercial. Results were obtained with the VDDE model (Piponiot et al, 2018) calibrated with data from the TmFO network (Piponiot et al, in press). All trees > 50 cm dbh from species with potential commercial value are considered as timber (average: 87% of the total volume of trees > 50 cm dbh)."}
 
-grd <- expand.grid(long=seq(from=-79.5, to=-44.5, by=1), lat=seq(from=-19.5, to=9.5, by=1))
-coordinates(grd) <- ~ long+lat
-gridded(grd) <- TRUE
-proj4string(grd) <- proj4string(amazonia)
-grd = grd[!is.na(over(spTransform(grd,proj4string(amazonia)), amazonia))]
+timeLength = 500
+logIntensity = rep(20, 5); logIntensity[c(3,5)] = 10
+logCycle = rep(35, 5); logCycle[4:5] = 65
+omega0 = rep(0.90, 5); omega0[1] = 0.30
+longitude = rep(-60.6, 5) ## location: Manaus
+latitude = rep(-3.3, 5)
+tabScenario = data.table(scenario = c("(a) Few commercial species",  "(b) All commercial species", 
+                                      "(c) Low intensity", "(d) Long cutting cycle", "(e) Low intensity + Long cycle"), 
+                         intensity = paste(logIntensity, "m3/ha"), cycle = paste(logCycle, "yr"), 
+                         omega0 = paste0(omega0*100, "%"))
 
-om0 = raster("variables and parameters/map_omega0.tif")
-grd$om0 = extract(om0, grd)
-grd$site = 1:nrow(grd)
+tabScenario$scenario = factor(tabScenario$scenario, levels = c("(a) Few commercial species", 
+                                                               "(b) All commercial species", 
+                                                               "(c) Low intensity",
+                                                               "(d) Long cutting cycle", 
+                                                               "(e) Low intensity + Long cycle") )
 
 source("functions/timbRecovery.R")
 
-if (calc){
-  recov = timbRecovery(timeLength = 30, logIntensity = 20, logCycle = 30, omega0 = grd$om0, 
-                       longitude = grd$long, latitude = grd$lat, uncertainties = TRUE)
-  save(recov, file = "Rdata_files/amazonia_recov.Rdata")
-} else (load("Rdata_files/amazonia_recov.Rdata"))
+recov = timbRecovery(timeLength, logIntensity, logCycle, omega0, longitude, latitude, uncertainties = TRUE)
 
-dfrecov = recov[[1]][, .(precov = med[t==30]/med[t==0]), .(site)]
-dfrecov = merge(dfrecov, grd, by = "site")
+dfrecov = recov[[1]]
+dfrecov$scenario = tabScenario$scenario[dfrecov$site]
 
-ggplot(dfrecov, aes(x=long, y = lat, fill=precov)) + geom_raster() + coord_equal() + 
-  scale_fill_gradientn(colours = c("red","orange","yellow")) + 
-  guides(fill = guide_colourbar(title = "", title.position="right", title.vjust = 3,
-                                title.theme = element_text(angle=90), barheight=25, barwidth=0.7))
+ggplot(dfrecov, aes(x=t, y = med, color = scenario, ymin = inf, ymax = sup)) + 
+  geom_ribbon(aes(fill = scenario), colour = NA, alpha = 0.1) + geom_line() + 
+  theme(legend.position = "none", panel.background = element_rect(fill = 'white', colour="black")) + 
+  xlab("Time since first logging event (yr)") + ylab("Commercial timber volume (m3/ha)")  + facet_wrap(~scenario, nrow=2) 
 
 ```
 
+<!-- ```{r, fig.cap="Maximum proportion of timber recovery in Amazonia at the end of the first cutting cycle. Logging intensities and cutting cycles are respectively: (a) 20 m3/ha and 35 years, (b) 10 m3/ha and 35 years, (c) 10 m3/ha and 60 years. Results were obtained with the VDDE model [@Piponiot2018] calibrated with data from the TmFO network [@Piponiot2019]. All trees > 50 cm dbh from species with potential commercial value are considered as timber (average: 87% of the total volume of trees > 50 cm dbh)."} -->
 
-# Overharvesting will lead to stock depletion in just a few decades
+<!-- # amazonia = readOGR("C:/Users/camille.piponiot/Google Drive/maps/amazonia","BassinAmazonien") -->
+<!-- # amazonia <- spTransform(amazonia, CRS("+proj=longlat +datum=WGS84")) -->
+<!-- #  -->
+<!-- # grd <- expand.grid(long=seq(from=-79.5, to=-44.5, by=1), lat=seq(from=-19.5, to=9.5, by=1)) -->
+<!-- # coordinates(grd) <- ~ long+lat -->
+<!-- # gridded(grd) <- TRUE -->
+<!-- # proj4string(grd) <- proj4string(amazonia) -->
+<!-- # grd = grd[!is.na(over(spTransform(grd,proj4string(amazonia)), amazonia))] -->
+<!-- #  -->
+<!-- # om0 = raster("variables and parameters/map_omega0.tif") -->
+<!-- # grd$om0 = extract(om0, grd) -->
+<!-- # grd$site = 1:nrow(grd) -->
+<!-- #  -->
+<!-- # source("functions/timbRecovery.R") -->
+<!-- #  -->
+<!-- #  -->
+<!-- # if (calc){ -->
+<!-- #   recov10 = timbRecovery(timeLength = 35, logIntensity = 20, logCycle = 35, -->
+<!-- #                          omega0 = grd$om0, longitude = grd$long, latitude = grd$lat, -->
+<!-- #                          uncertainties = FALSE) -->
+<!-- #   recov20 = timbRecovery(timeLength = 35, logIntensity = 10, logCycle = 35, -->
+<!-- #                          omega0 = grd$om0, longitude = grd$long, latitude = grd$lat, -->
+<!-- #                          uncertainties = FALSE) -->
+<!-- #   recov30 = timbRecovery(timeLength = 60, logIntensity = 10, logCycle = 35, -->
+<!-- #                          omega0 = grd$om0, longitude = grd$long, latitude = grd$lat, -->
+<!-- #                          uncertainties = FALSE) -->
+<!-- #   dfrecov = rbind(recov10[[1]], recov20[[1]], recov30[[1]]) -->
+<!-- #   dfrecov$logInt = rep(1:3*10, each = nrow(recov10[[1]])) -->
+<!-- #   dfrecov = dfrecov[, .(precov = med[t==35]/med[t==0]), .(site, logInt)] -->
+<!-- #   dfrecov = merge(dfrecov, grd, by = "site") -->
+<!-- #   save(dfrecov, file = "Rdata_files/amazonia_recov.Rdata") -->
+<!-- #  -->
+<!-- # } else (load("Rdata_files/amazonia_recov.Rdata")) -->
+<!-- #  -->
+<!-- # ggplot(dfrecov, aes(x=long, y = lat, fill=precov)) + geom_raster() + coord_equal() + -->
+<!-- #   scale_fill_gradientn(colours = c("red","orange","yellow","forestgreen")) + -->
+<!-- #   facet_wrap( ~logInt) + -->
+<!-- #   guides(fill = guide_colourbar(title = "", title.position="right", title.vjust = 3, -->
+<!-- #                                 title.theme = element_text(angle=90), barheight=7, barwidth=0.7)) -->
 
-at current rates: timber stocks in available production forests will be gone by 20XX => need to find a solution
+<!-- ``` -->
 
-![](graphs/temp_timber_decrease.png)
-
--> adapt with 20 m3 in the first year then 10 m3/yr
 
 #	Drastic reduction in harvest levels are needed
 
--> reduce to ca. 10 m3/ha every 65 years to maintain stocks [plus account for regional variability?]
-(cf previous figure)
+Decreasing the logging intensity (eg Figure 1c, 10 $m^3ha^{-1}$) or increasing the cutting cycle length (eg Figure 1d, 65 years) can help making logging more sustainable.  
+
+To maintain timber stocks in the long term, logging intensities will need to be reduced, and cutting cycles made longer. A first estimation of sustainable harvesting rates would be approximately 10 $m^3ha^{-1}$ every 65 years (Figure 1e), but these numbers need to account regional variability in forest dynamics and be adapted to local specificities. 
 
 #	Reducing harvest intensities will not be enough to meet current timber demands
 
-=> not enough area to maintain current production rates (~ 20-30 Mm3 in the whole region/ better estimates?)
-total available area: 190 Mha
-total production per ha per year: 10/65 x 60% (area suitable for logging in a concession) => max production = 190 x 10/65 x 0.58 = 17 Mm3 < target
+Such a reduction in harvesting rates may not be compatible with current extraction rates (between 20 and 30 $Mm^3$ every year in the total Amazon region). 
+
+The total area of forests available for logging (i.e. no logging restriction and < 25 km from a motorable track) is 190 Mha, 33% of remaining forests. Around 60% of these areas are slopes, riparian reserves, and heavily degraded areas [@Verissimo2014,@Piponiot2019]. With a harvesting rate of 10 $m^3ha^{-1}$ every 65 years, the maximum production is 190 x 10/65 x 0.60 = 17.5 $Mm^3yr^{-1}$, which is lower than our initial target. 
+
+<!-- # Overharvesting will lead to stock depletion in just a few decades -->
+
+<!-- At current rates, timber stocks in available production forests will be gone in xx years if we harvest only 30% of species, and xx years if we harvest all species (figure xx). There is thus an urgent need to find a solution for future timber production.  -->
 
 # Possible future trajectories 
 
-2 potential trajectories to harvest the timber-production target: 
+Two potential trajectories to continue harvesting large quantities of timber to meet the demand: 
 
-- drastically increase the area available (potential consequences on other ecosystem services, in particular for biodiversity conservation) 
+- drastically increase the area available by building new roads in the forest or decreasing the area of forest protection: this will have potentially huge consequences on other ecosystem services, in particular for biodiversity conservation and carbon sequestration for climate change mitigation.  
 
-- or increase silviculture and restoration of degraded forests -> will probably need fundings (eg through payments for environmental services)
+- or increase silviculture and restoration of degraded forests. These policies will probably need to increase financial incentives to be effective (eg through payments for environmental services). 
 
 
 #	Intensive forest management and climate change adaptation
 
-betting on natural forests for future timber production = risky (climate changes, fires, etc: what will we have tomorrow?) // intensively managed forests (plantations, restored forests) can be managed to increase adaptation to foreseen changes (through species selection, etc)
+Betting on natural forests for future timber production is risky: ongoing climate change and increase in fire frequency and other disturbances is increasing tree mortality in Amazonian forests [@Brienen2015], and potential huge diebacks are not to exclude [@Allen2010]. The composition and structure of future Amazonian forests is thus highly uncertain.  
+Forest restoration and plantations can be managed to increase resilience to future climate changes, for example by planting species adapted to future conditions [@Guariguata2008]. 
+
+# Additional figures
+
+```{r, fig.cap="Maximum proportion of timber recovery in Amazonia at the end of the first cutting cycle. Logging intensities and cutting cycles are respectively: (a) 20 m3/ha and 35 years, (b) 10 m3/ha and 35 years, (c) 10 m3/ha and 60 years. Results were obtained with the VDDE model [@Piponiot2018] calibrated with data from the TmFO network [@Piponiot2019]. All trees > 50 cm dbh from species with potential commercial value are considered as timber (average: 87% of the total volume of trees > 50 cm dbh)."}
+load("C:/Users/camille.piponiot/Google Drive/volume Amazonia - second submission/codes/predictions.Rdata")
+
+### confidence plot ###
+dfrecov = predictions[,.(inf = quantile(pvrec,0.025),
+                         med = quantile(pvrec,0.5),
+                         sup = quantile(pvrec,0.975),
+                         mean = mean(pvrec),
+                         cv = sd(pvrec)/mean(pvrec)),
+                      .(longitude,latitude,vext,trot)]
+dfrecov[, precov := 100 * med]
+dfrecov[precov > 100 , precov := 100]
+dfrecov[, scenario := factor(paste(vext, "m3/ha;", trot, "years"))]
+dfrecov$scenario = factor(dfrecov$scenario, levels = levels(dfrecov$scenario)[c(3,1,2)])
+
+ggplot(dfrecov, aes(x=longitude, y = latitude, fill=precov)) + 
+  geom_raster() + coord_equal() + 
+  scale_fill_gradientn(colours = c("red","orange","yellow","forestgreen")) + 
+  facet_wrap( ~ scenario) + 
+  guides(fill = guide_colourbar(title = "", title.position="right", title.vjust = 3, 
+                                title.theme = element_text(angle=90), barheight=7, barwidth=0.7)) + labs(x="Longitude",y = "Latitude") + theme_bw()
+ggsave("graphs/fig1_maps_embrapa.pdf", height=3, width = 10)
+```
+
+```{r}
+load("C:/Users/camille.piponiot/Google Drive/volume Amazonia - second submission/codes/trajectories.Rdata")
+
+IC_traj <- trajectories[vext < 30 & trot > 15 & (vext!=20 | trot != 65),
+                        .(vrec_inf=quantile(vrec, 0.025),
+                          vrec_med=quantile(vrec, 0.5),
+                          vrec_sup=quantile(vrec, 0.975),
+                          vext_inf=quantile(vext_tot, 0.025),
+                          vext_med=quantile(vext_tot, 0.5),
+                          vext_sup=quantile(vext_tot, 0.975)),
+                        .(t,scenario,vext,trot)]
+
+IC_traj <- melt(IC_traj, id.vars = c("t","scenario","vext","trot"), 
+                measure.vars = colnames(IC_traj)[grep("_", colnames(IC_traj))])
+IC_traj$stat <- tstrsplit(IC_traj$variable,"_")[[2]]
+IC_traj$variable <- tstrsplit(IC_traj$variable,"_")[[1]]
+IC_traj <- dcast(IC_traj, t+vext+trot+variable+scenario ~ stat)
+
+# remove recovery before the end of the first cutting cycle: 
+# only part of the total area has been logged
+IC_traj[(IC_traj$variable=="vrec" & IC_traj$t<IC_traj$trot), c("inf","med","sup")] <- NA
+
+IC_traj$variable <- factor(IC_traj$variable, levels = c("vext","vrec"), 
+                           labels = c(vext = expression("Extracted timber (M"*m^3*yr^{-1}*")"),
+                                      vrec = expression("Timber recovery (M"*m^3*yr^{-1}*")")))
+
+IC_traj[, scenario := as.factor(paste(vext, "m3/ha;", trot, "years"))]
+
+IC_traj$scenario <- factor(IC_traj$scenario, levels = levels(IC_traj$scenario)[c(3,2,1)])
+
+### sawlog demand data ###
+## current timber production from Lentini et al 2005
+sawlog_demand <- 30*1e6
+## predictions of sawnwood consumption increase 2006 -> 2060 from buongiorno et al 2012 
+df_demand <- data.frame(matrix(rep(c(1, range(c(39.1,33.1,36.2,42.3)/32.5)) * sawlog_demand*1e-6, 2),byrow=T,nrow=2))
+colnames(df_demand) <- c("current","min_future","max_future")
+df_demand$variable = factor(c("vext","vrec"), labels = c(vext = expression("Extracted timber (M"*m^3*yr^{-1}*")"),  vrec = expression("Timber recovery (M"*m^3*yr^{-1}*")"))) 
+
+data.annotate <- data.frame(lab = paste("(", letters[c(1,2)],")", sep=""), x = -Inf, y = Inf,
+                            variable = factor(c("vext","vrec"), 
+                                              labels = c(vext = expression("Extracted timber (M"*m^3*yr^{-1}*")"),
+                                                         vrec = expression("Timber recovery (M"*m^3*yr^{-1}*")"))))
+
+### colours ###
+col_palette = RColorBrewer::brewer.pal(name = "Set1", n=3)
+
+### plots ###
+p <- ggplot(IC_traj, aes(x=t, y = med, fill=scenario)) + 
+  geom_hline(data = df_demand, aes(yintercept = current), lty=3, lwd=0.5) + 
+  geom_rect(data = df_demand, aes(xmin=-Inf, xmax = +Inf, ymin = min_future, ymax = max_future), alpha=0.1, inherit.aes = FALSE) +
+  geom_ribbon(aes(ymin=inf,ymax=sup),alpha=0.1, colour=NA, show.legend = F) +
+  geom_line(aes(colour=scenario)) + 
+  labs(x = "Time since first logging event (yrs)", y = NULL) +
+  geom_text(data = data.annotate, aes(label = lab, x = x, y = y), hjust = -0.2, vjust = 1.5, inherit.aes = FALSE) +
+  scale_colour_manual(values = col_palette, drop=FALSE) + scale_fill_brewer(palette = "Set1") +
+  facet_wrap( ~ variable, scales = "free_y", ncol=1, strip.position = "left", 
+              labeller = label_parsed) + 
+  theme_bw() + theme(panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(), 
+                     panel.border = element_rect(colour = "black"),
+                     strip.background = element_blank(),
+                     strip.placement = "outside", 
+                     legend.position="top", 
+                     legend.title = element_blank()) + 
+  guides(colour=guide_legend(ncol=3,byrow=F))
+p
+
+```
+# References

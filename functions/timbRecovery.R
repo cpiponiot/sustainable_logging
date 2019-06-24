@@ -1,6 +1,6 @@
 library(truncnorm)
 
-## when parameter "area" is proided, the function calculates logging trajectories as the sum of all 
+## when parameter "area" is provided, the function calculates logging trajectories as the sum of all 
 ## sites' outputs (timber volume, extrated volume) multiplied by their area
 
 timbRecovery = function(timeLength, logIntensity, logCycle, omega0, longitude, latitude, dti = NA, 
