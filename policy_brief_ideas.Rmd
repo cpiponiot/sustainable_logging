@@ -17,39 +17,34 @@ calc=FALSE
 ```
 
 
-# Abstract
+# Introduction
 
-Since the 1970s, selective logging has become the main silvicultural system in the tropics. This system is based on very simple rules: the harvest of a few commercial trees having reached a minimum cutting diameter, and a cutting cycle that is generally between 20 and 35 years. In the past decades, numerous studies have shown that in most cases these cutting cycles are insufficient to recover harvested timber volumes. Low-impact techniques have been recommended to reduce the damage caused by logging operations and improve tree regeneration and growth, but these techniques have also been shown their limits. 
+Since the 1970s, selective logging has become the main silvicultural system in the tropics. This system is based on very simple rules: the harvest of a few commercial trees having reached a minimum cutting diameter, and a cutting cycle that is generally between 20 and 35 years. 
+In the past decades, numerous studies have shown that in most cases these cutting cycles are insufficient to recover harvested timber volumes [@TerSteege2002,@Dauber2005a,@VanGardingen2006,@Macpherson2010,@Putz2012]. 
+Low-impact techniques have been recommended to reduce the damage caused by logging operations and improve tree regeneration and growth, but even though these techniques improve carbon sequestration in logged forests [@West2014], they are not sufficient to ensure the recovery of commercial timber stocks [@Sist2007].
+Results from a recently-published study based on data from 845 ha of logged forests spread in the Amazon [@Piponiot2019] show that when only a few species are harvested for timber, timber volumes quickly drop down after repeated 20 $m^3ha^{-1}$ harvests with 35 years cutting cycles: after only 2 logging cycles, the forest is almost depleted of its valuable commercial timber (Figure 1a). 
+Even when all species with potential commercial value are considered, 35 year cutting cycles are not enough to recover the 20 $m^3ha^{-1}$ harvests (e.g. Figure 1b, 90% of total volume has commercial value, similar to values in Amazonia [@Piponiot2019]). 
 
-Despite the slow recovery of selectively logged forests, this harvest system has been continuously used because there are still several hundred million hectares of intact tropical forests, particularly Amazonia where 400 million hectares [xx check potapov 2017] are still considered as intact. These intact forests are however crucial for carbon sequestretion and biodiverisity conservation, among other ecosystem services that could be reduced if these forests were over-harvested.  
+Despite the slow recovery of selectively logged forests, this harvest system is still widely used because there are still several hundred million hectares of intact tropical forests, particularly in Amazonia where 400 million hectares are considered as intact (no detectable human footprint) [@Potapov2017]. These intact forests are however crucial for carbon sequestration and biodiversity conservation [@Gibson2011], among other ecosystem services that could be reduced if these forests were over-harvested.  
 
-The main objective of this paper is to show the limits of selective logging to sustainably meet the demand for wood in the Amazon and to suggest alternatives for future action. These initiatives could be part of a forest transition that we consider to be urgent in order to conserve the Amazon rainforest. [Our study tested several selective logging scenarios by varying three main variables: cutting cycle length, harvest intensity, and commercial species pool. We have identified under what conditions the selective logging was sustainable from a timber production point of view and what was its production capacity vis-à-vis the demand for timber.]
-This paper presents first of all some contextual elements specific to the production of roundwood timber in the Amazon and the studies carried out on the sustainability of the system, we will then present the results of the various tested scenarios, and finally we propose alternative paths for a forest transition in the Amazon.
+The main objective of this paper is to show the limits of selective logging to sustainably meet the demand for wood in the Amazon and to suggest alternatives for future action. These initiatives could be part of an anticipated forest transition that we consider to be urgent in order to conserve the Amazon rainforest. 
 
-# Official harvest intensities are not sustainable
-
-When only a few species are harvested for timber, timber volumes quickly drop down after repeated 20 $m^3ha^{-1}$ harvests with 35 years cutting cycles (eg Figure 1a, 30% of total volume has commercial value). 
-
-Even when all species with potential commercial value are considered, 35 year cutting cycles are not enough to recover the 20 $m^3ha^{-1}$ harvests (eg Figure 1b, 90% of total volume has commercial value, similar to values in Amazonia [@Piponiot2019]). 
-
-```{r illustr_traj_uncert, fig.height=6, fig.width=10, fig.cap = "Figure 1: Commercial timber recovery in Amazonia under different scenarios: (a) 20 m3/ha every 35 years, with only 30% of timber volumes considered as commercial, (b) 20 m3/ha every 35 years, with 90% of timber volumes considered as commercial, (c) 10 m3/ha every 35 years, with 90% of timber volumes considered as commercial, (d) 20 m3/ha every 65 years, with 90% of timber volumes considered as commercial, (e) 10 m3/ha every 65 years, with 90% of timber volumes considered as commercial. Results were obtained with the VDDE model (Piponiot et al, 2018) calibrated with data from the TmFO network (Piponiot et al, in press). All trees > 50 cm dbh from species with potential commercial value are considered as timber (average: 87% of the total volume of trees > 50 cm dbh)."}
+```{r illustr_traj_uncert, fig.height=3, fig.width=10, fig.cap = "Figure 1: Commercial timber recovery in Amazonia under different scenarios: (a) 20 m3/ha every 35 years, with only 30% of timber volumes considered as commercial, (b) 20 m3/ha every 35 years, with 90% of timber volumes considered as commercial, (c) 10 m3/ha every 35 years, with 90% of timber volumes considered as commercial, (d) 20 m3/ha every 65 years, with 90% of timber volumes considered as commercial, (e) 10 m3/ha every 65 years, with 90% of timber volumes considered as commercial. Results were obtained with the VDDE model (Piponiot et al, 2018) calibrated with data from the TmFO network (Piponiot et al, in press). All trees > 50 cm dbh from species with potential commercial value are considered as timber (average: 87% of the total volume of trees > 50 cm dbh)."}
 
 timeLength = 500
-logIntensity = rep(20, 5); logIntensity[c(3,5)] = 10
-logCycle = rep(35, 5); logCycle[4:5] = 65
-omega0 = rep(0.90, 5); omega0[1] = 0.30
-longitude = rep(-60.6, 5) ## location: Manaus
-latitude = rep(-3.3, 5)
+logIntensity = rep(20, 3); logIntensity[3] = 10
+logCycle = rep(35, 3); logCycle[3] = 65
+omega0 = rep(0.90, 3); omega0[1] = 0.30
+longitude = rep(-60.6, 3) ## location: Manaus
+latitude = rep(-3.3, 3)
 tabScenario = data.table(scenario = c("(a) Few commercial species",  "(b) All commercial species", 
-                                      "(c) Low intensity", "(d) Long cutting cycle", "(e) Low intensity + Long cycle"), 
+                                      "(c) Low intensity + Long cycle"), 
                          intensity = paste(logIntensity, "m3/ha"), cycle = paste(logCycle, "yr"), 
                          omega0 = paste0(omega0*100, "%"))
 
 tabScenario$scenario = factor(tabScenario$scenario, levels = c("(a) Few commercial species", 
                                                                "(b) All commercial species", 
-                                                               "(c) Low intensity",
-                                                               "(d) Long cutting cycle", 
-                                                               "(e) Low intensity + Long cycle") )
+                                                               "(c) Low intensity + Long cycle") )
 
 source("functions/timbRecovery.R")
 
@@ -61,92 +56,103 @@ dfrecov$scenario = tabScenario$scenario[dfrecov$site]
 ggplot(dfrecov, aes(x=t, y = med, color = scenario, ymin = inf, ymax = sup)) + 
   geom_ribbon(aes(fill = scenario), colour = NA, alpha = 0.1) + geom_line() + 
   theme(legend.position = "none", panel.background = element_rect(fill = 'white', colour="black")) + 
-  xlab("Time since first logging event (yr)") + ylab("Commercial timber volume (m3/ha)")  + facet_wrap(~scenario, nrow=2) 
-
+  xlab("Time since first logging event (yr)") + ylab("Commercial timber volume (m3/ha)")  + 
+  facet_wrap(~scenario, nrow=1) 
+ggsave("graphs/Figure1.png", height = 4, width = 12)
 ```
 
-<!-- ```{r, fig.cap="Maximum proportion of timber recovery in Amazonia at the end of the first cutting cycle. Logging intensities and cutting cycles are respectively: (a) 20 m3/ha and 35 years, (b) 10 m3/ha and 35 years, (c) 10 m3/ha and 60 years. Results were obtained with the VDDE model [@Piponiot2018] calibrated with data from the TmFO network [@Piponiot2019]. All trees > 50 cm dbh from species with potential commercial value are considered as timber (average: 87% of the total volume of trees > 50 cm dbh)."} -->
 
-<!-- # amazonia = readOGR("C:/Users/camille.piponiot/Google Drive/maps/amazonia","BassinAmazonien") -->
-<!-- # amazonia <- spTransform(amazonia, CRS("+proj=longlat +datum=WGS84")) -->
-<!-- #  -->
-<!-- # grd <- expand.grid(long=seq(from=-79.5, to=-44.5, by=1), lat=seq(from=-19.5, to=9.5, by=1)) -->
-<!-- # coordinates(grd) <- ~ long+lat -->
-<!-- # gridded(grd) <- TRUE -->
-<!-- # proj4string(grd) <- proj4string(amazonia) -->
-<!-- # grd = grd[!is.na(over(spTransform(grd,proj4string(amazonia)), amazonia))] -->
-<!-- #  -->
-<!-- # om0 = raster("variables and parameters/map_omega0.tif") -->
-<!-- # grd$om0 = extract(om0, grd) -->
-<!-- # grd$site = 1:nrow(grd) -->
-<!-- #  -->
-<!-- # source("functions/timbRecovery.R") -->
-<!-- #  -->
-<!-- #  -->
-<!-- # if (calc){ -->
-<!-- #   recov10 = timbRecovery(timeLength = 35, logIntensity = 20, logCycle = 35, -->
-<!-- #                          omega0 = grd$om0, longitude = grd$long, latitude = grd$lat, -->
-<!-- #                          uncertainties = FALSE) -->
-<!-- #   recov20 = timbRecovery(timeLength = 35, logIntensity = 10, logCycle = 35, -->
-<!-- #                          omega0 = grd$om0, longitude = grd$long, latitude = grd$lat, -->
-<!-- #                          uncertainties = FALSE) -->
-<!-- #   recov30 = timbRecovery(timeLength = 60, logIntensity = 10, logCycle = 35, -->
-<!-- #                          omega0 = grd$om0, longitude = grd$long, latitude = grd$lat, -->
-<!-- #                          uncertainties = FALSE) -->
-<!-- #   dfrecov = rbind(recov10[[1]], recov20[[1]], recov30[[1]]) -->
-<!-- #   dfrecov$logInt = rep(1:3*10, each = nrow(recov10[[1]])) -->
-<!-- #   dfrecov = dfrecov[, .(precov = med[t==35]/med[t==0]), .(site, logInt)] -->
-<!-- #   dfrecov = merge(dfrecov, grd, by = "site") -->
-<!-- #   save(dfrecov, file = "Rdata_files/amazonia_recov.Rdata") -->
-<!-- #  -->
-<!-- # } else (load("Rdata_files/amazonia_recov.Rdata")) -->
-<!-- #  -->
-<!-- # ggplot(dfrecov, aes(x=long, y = lat, fill=precov)) + geom_raster() + coord_equal() + -->
-<!-- #   scale_fill_gradientn(colours = c("red","orange","yellow","forestgreen")) + -->
-<!-- #   facet_wrap( ~logInt) + -->
-<!-- #   guides(fill = guide_colourbar(title = "", title.position="right", title.vjust = 3, -->
-<!-- #                                 title.theme = element_text(angle=90), barheight=7, barwidth=0.7)) -->
+```{r, fig.cap = "Figure 2: Map of Amazonian forests according to their protection status and human impact. Green areas are inaccessible forests (> 25 km from any track or road), and orange areas are accessible forests (< 25 km from a track or road). Shaded areas are protected forests."}
 
-<!-- ``` -->
+## forest cover > 90% 
+load("C:/Users/camille.piponiot/Google Drive/maps/forest cover/FC.Rdata")
+
+## protected areas
+load("C:/Users/camille.piponiot/Google Drive/volume_recovery/calc_Rdata/WDPA_AmazonRaster.Rdata")
+wdpa_am_raster[is.na(mask_FC),] = NA
+
+## < 25 km from a road
+load("C:/Users/camille.piponiot/Google Drive/volume_recovery/calc_Rdata/roadBuffer_raster.Rdata")
+roadBuffer_forest = roadBuffer_raster
+roadBuffer_forest[is.na(mask_FC),] = NA
+
+inaccessible = mask_FC
+inaccessible[!is.na(roadBuffer_forest)] = NA
+
+inacc_prot = inaccessible
+inacc_prot[is.na(wdpa_am_raster),] = NA
+
+inacc_unprot = inaccessible
+inacc_unprot[!is.na(wdpa_am_raster),] = NA
+
+acc_prot = roadBuffer_forest
+acc_prot[is.na(wdpa_am_raster),] = NA
+
+acc_unprot = roadBuffer_forest
+acc_unprot[!is.na(wdpa_am_raster),] = NA
+
+# ## intact forest landscapes
+# IFL = raster("C:/Users/camille.piponiot/Google Drive/forest_degradation_Amazonia/hinter/IFL_amazonia.tif")
+# IFL[IFL==0] = NA
+# IFL = aggregate(IFL, fact = c(48,36))
+# save(IFL, "C:/Users/camille.piponiot/Google Drive/forest_degradation_Amazonia/hinter/IFL_amazonia_aggr.tif")
+
+png("graphs/Figure2.png")
+plot(inaccessible, col = "lightgreen", legend = F)
+plot(roadBuffer_forest, add=T, col="orange", legend = F)
+plot(wdpa_am_raster, add=T, col="#00000040", legend = F)
+dev.off()
+```
 
 
-#	Drastic reduction in harvest levels are needed
+# Preserving intact and inaccessible forests
 
-Decreasing the logging intensity (eg Figure 1c, 10 $m^3ha^{-1}$) or increasing the cutting cycle length (eg Figure 1d, 65 years) can help making logging more sustainable.  
+The preservation of intact forests can bring several benefits, among which high levels of carbon sequestration and biodiversity [@Gibson2011], and the limitation of soil erosion [@Flores2019]. The Amazon biome holds the largest area of intact tropical forests on Earth, with around 400 million hectares of forests with no detectable human footprint (approximately two thirds of the total forested area) [@Potapov2017]. 
 
-To maintain timber stocks in the long term, logging intensities will need to be reduced, and cutting cycles made longer. A first estimation of sustainable harvesting rates would be approximately 10 $m^3ha^{-1}$ every 65 years (Figure 1e), but these numbers need to account regional variability in forest dynamics and be adapted to local specificities. 
+Selective logging and other human disturbances can have long-term consequences on intact tropical forests' carbon stocks [@Blanc2009], composition [@DeAvila2015], structure [@Verburg2003], and fauna [@Burivalova2014], among others. For instance, selective logging can increase the proportion of low-wood density species for several decades [@Baraloto2012], making these forests more vulnerable to increasingly frequent droughts [@Aleixo2019].  
+Preserving a high proportion of intact forests is thus critical for regional and global geochemical cycles as well as maintaining the resilience of Amazonian forests to global environmental changes [@Davidson2012]. 
 
-#	Reducing harvest intensities will not be enough to meet current timber demands
+Today 45% of the Amazon biome is under some type of legal protection, but the effectiveness of the protection status is not yet sufficient, mainly due to the lack of core-funding [@Gullison2018]. As a consequence, illegal logging and deforestation also happen in protected areas [@Laurance2012], although in lower proportions than  outside protected areas [@Barber2014].
+Funding to consolidate the Amazon protection network, in combination with rationalized road building to prevent avoidable forest degradation [@Laurance2014], could help preserve the remaining intact forests of the Amazon. 
+
+# Controlling and reducing the pressure on logged forests
+
+Current logging rules in Amazonia allow harvest intensities around 10 to 30 m$^3$ of timber per hectare every 20 to 65 years depending on the country [@Blaser2011]. For example in the Brazilian Amazon (60% of the total biome's area), loggers are allowed to harvest up to 30 m$^3$ of timber per hectare every 35 years, even though in reality logging intensities are around 10 to 20 m$^3$ per hectare. These rules have been set up based on a small subset of experimental plots, but several studies suggest that current cutting cycles are not enough to recover commercial timber stocks [@Piponiot2019], thus compromising the sustainability of selective logging. 
+
+Decreasing the logging intensity or increasing the cutting cycle length can help making logging more sustainable (Figure 1c).  
+For instance, if 90% of all species could be harvested (which is optimistic compared to the relatively low number of species harvested today), a first estimation of sustainable harvesting rates would be approximately 10 $m^3ha^{-1}$ every 65 years (Figure 1c), but these numbers need to account for spatial and temporal variability in forest dynamics, and be adapted to local specificities. 
 
 Such a reduction in harvesting rates may not be compatible with current extraction rates (between 20 and 30 $Mm^3$ every year in the total Amazon region). 
+The total area of forests available for logging (i.e. no logging restriction and < 25 km from a motorable track, xx area in Figure 2) is 190 Mha, 33% of all remaining forests. Around 60% of these areas are slopes, riparian reserves, and heavily degraded areas [@Verissimo2014,@Putz2019]. With a harvesting rate of 10 $m^3ha^{-1}$ every 65 years, the maximum production is 190 x 10/65 x 0.60 = 17.5 $Mm^3yr^{-1}$, which is lower than the current extraction rate. Moreover, this production potential will likely decrease in the future because of climate change and increased frequency of disturbances [@Piponiot2019]. 
+Adopting more sustainable logging intensities and cutting cycles will thus not be enough to meet current extraction rates in the long run. Developing alternative timber sources early on.  
 
-The total area of forests available for logging (i.e. no logging restriction and < 25 km from a motorable track) is 190 Mha, 33% of remaining forests. Around 60% of these areas are slopes, riparian reserves, and heavily degraded areas [@Verissimo2014,@Piponiot2019]. With a harvesting rate of 10 $m^3ha^{-1}$ every 65 years, the maximum production is 190 x 10/65 x 0.60 = 17.5 $Mm^3yr^{-1}$, which is lower than our initial target. 
+# Actively restoring degraded forests 
 
-<!-- # Overharvesting will lead to stock depletion in just a few decades -->
+In Amazonia, a substantial part of forests, especially those that are easily accessible by road (see Figure 2), have been heavily disturbed by human activities (successive fires and logging) to the point that their structure and composition have been lastingly transformed [@Rappaport2018]. These degraded forests usually lack large trees and valuable timber species, and can in some cases be packed with lianas that constraint tree growth [@Kennard2002,@Enquist2011]. Their timber production potential can be restored with human interventions including liana cutting, enrichment planting of valuable tree species or girdling of competing non-commercial trees, along with active protection from fires and other disturbances to avoid further degradation and deforestation [@Cerullo2018]. These techniques have proven effective but require an initial investment and take time to give results. They can thus be a risky challenge for forest managers, especially in contexts where land tenure is insecure [@Cerullo2018]. This can be economically prohibitive when compared to instantly-available timber from natural forests. The transition to timber-oriented forest restoration will require funding for providing financial incentives, securing land tenure, and developing technical and government expertise in forest restoration.  
 
-<!-- At current rates, timber stocks in available production forests will be gone in xx years if we harvest only 30% of species, and xx years if we harvest all species (figure xx). There is thus an urgent need to find a solution for future timber production.  -->
+# Reforesting and planting native species in abandonned areas
 
-# Possible future trajectories 
+In the arc of deforestation, around 30% of agricultural lands are abandoned [@Houghton2000]. These lands can be used as timber plantations to replace timber from natural forests [@Lamb1998,@Lamb2005], as well as providing several other benefits [@Paquette2010]. Today, timber plantations in South America are dominated by monocultures of exotic species from two genera: *Eucalyptus* and *Pinus*. These exotic species have been selected for their high productivity but they have been the center of many controversies because of their effect on water use, soil humus and biodiversity [@Majer1999]. Some studies suggest that mixed species plantations could not only increase the biodiversity of tree plantations but also improve their productivity [@Erskine2006]. However there is a lack today of mixed plantation experiments in the tropics in general and in Amazonia in particular, and there is thus a need for developing technical research and investing in mixed tree plantations with local species to produce the next generation of timber outside natural forests.   
 
-Two potential trajectories to continue harvesting large quantities of timber to meet the demand: 
+There is an additional advantage to tree plantations: having more control over future crop trees. Betting on natural forests for future timber production is risky: ongoing climate change and increase in fire frequency and other disturbances is increasing tree mortality in Amazonian forests [@Brienen2015], and potential huge diebacks are not to be excluded [@Allen2010]. The composition and structure of future Amazonian forests is thus highly uncertain.  
+Forest restoration and plantations can be managed to increase resilience to future climate changes, for example by planting species adapted to expected climatic conditions [@Guariguata2008]. 
 
-- drastically increase the area available by building new roads in the forest or decreasing the area of forest protection: this will have potentially huge consequences on other ecosystem services, in particular for biodiversity conservation and carbon sequestration for climate change mitigation.  
+# Conclusion: an anticipated forest transition
 
-- or increase silviculture and restoration of degraded forests. These policies will probably need to increase financial incentives to be effective (eg through payments for environmental services). 
+Amazonian forest management is now at a decisive turning-point. Natural forest are not enough to sustainably provide meet the demand for timber, and their timber production potential is likely to decrease in the coming decades due to increased temperatures and frequency of disturbances such as droughts and fires. Intact and timber-rich forests still prevail but they provide important benefits such as high carbon storage and biodiversity that could be decreased by predatory logging. Alternative timber sources such as forest restoration for timber and timber plantations could help sustainably meet the demand for timber but there is a time lag between the moment they are planted and the moment timber can be harvested. Planting and restoring degraded forests now will provide for timber in the decades to come. To be effective, management policies should aim at increasing forest governance and protection, financing restoration and reforestation plans with national and international funds. 
 
-
-#	Intensive forest management and climate change adaptation
-
-Betting on natural forests for future timber production is risky: ongoing climate change and increase in fire frequency and other disturbances is increasing tree mortality in Amazonian forests [@Brienen2015], and potential huge diebacks are not to exclude [@Allen2010]. The composition and structure of future Amazonian forests is thus highly uncertain.  
-Forest restoration and plantations can be managed to increase resilience to future climate changes, for example by planting species adapted to future conditions [@Guariguata2008]. 
 
 # Additional figures
 
-```{r, fig.cap="Maximum proportion of timber recovery in Amazonia at the end of the first cutting cycle. Logging intensities and cutting cycles are respectively: (a) 20 m3/ha and 35 years, (b) 10 m3/ha and 35 years, (c) 10 m3/ha and 60 years. Results were obtained with the VDDE model [@Piponiot2018] calibrated with data from the TmFO network [@Piponiot2019]. All trees > 50 cm dbh from species with potential commercial value are considered as timber (average: 87% of the total volume of trees > 50 cm dbh)."}
+```{r, fig.cap="Maximum proportion of timber recovery in Amazonia at the end of the first cutting cycle. Logging intensities and cutting cycles are respectively: (a) 20 m3/ha and 35 years, (b) 10 m3/ha and 35 years, (c) 10 m3/ha and 60 years. Results were obtained with the VDDE model (Piponiot et al., 2018) calibrated with data from the TmFO network (Piponiot et al., 2019). All trees > 50 cm dbh from species with potential commercial value are considered as timber (average: 87% of the total volume of trees > 50 cm dbh)."}
 load("C:/Users/camille.piponiot/Google Drive/volume Amazonia - second submission/codes/predictions.Rdata")
+sites = data.table(read.csv2("C:/Users/camille.piponiot/Google Drive/Data TmFO cleaned/data/sites_clim_soil.csv"))
+sites[ , longitude := Long]
+sites[ , latitude := Lat]
 
 ### confidence plot ###
-dfrecov = predictions[,.(inf = quantile(pvrec,0.025),
+dfrecov = predictions[vext == 10,
+                      .(inf = quantile(pvrec,0.025),
                          med = quantile(pvrec,0.5),
                          sup = quantile(pvrec,0.975),
                          mean = mean(pvrec),
@@ -155,15 +161,17 @@ dfrecov = predictions[,.(inf = quantile(pvrec,0.025),
 dfrecov[, precov := 100 * med]
 dfrecov[precov > 100 , precov := 100]
 dfrecov[, scenario := factor(paste(vext, "m3/ha;", trot, "years"))]
-dfrecov$scenario = factor(dfrecov$scenario, levels = levels(dfrecov$scenario)[c(3,1,2)])
+# dfrecov = subset(dfrecov, !is.na(scenario) )
+# dfrecov$scenario = factor(dfrecov$scenario, levels = levels(dfrecov$scenario)[c(3,1,2)])
 
-ggplot(dfrecov, aes(x=longitude, y = latitude, fill=precov)) + 
-  geom_raster() + coord_equal() + 
+ggplot(dfrecov, aes(x=longitude, y = latitude)) + 
+  geom_raster(aes(fill = precov)) + coord_equal() + 
+  geom_point(data = sites, aes(x=longitude, y = latitude)) +
   scale_fill_gradientn(colours = c("red","orange","yellow","forestgreen")) + 
   facet_wrap( ~ scenario) + 
   guides(fill = guide_colourbar(title = "", title.position="right", title.vjust = 3, 
                                 title.theme = element_text(angle=90), barheight=7, barwidth=0.7)) + labs(x="Longitude",y = "Latitude") + theme_bw()
-ggsave("graphs/fig1_maps_embrapa.pdf", height=3, width = 10)
+ggsave("graphs/fig1_maps_embrapa.png", height=3, width = 10)
 ```
 
 ```{r}
