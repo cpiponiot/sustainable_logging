@@ -15,16 +15,15 @@ The aim of this study is to find concrete messages and/or recommendations to be 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, 
                       root.dir = rprojroot::find_rstudio_root_file())
-calc_data = FALSE
-
 # load libraries
-library(knitr)
-library(kableExtra)
-library(data.table)
-library(ggplot2)
-library(parallel)
+packages_needed <- c("knitr", "kableExtra", "data.table", "ggplot2", "parallel")
+packages_to_install <- packages_needed[!( packages_needed %in% rownames(installed.packages()))]
+if (length(packages_to_install) > 0)
+  install.packages(packages_to_install)
+lapply(packages_needed, require, character.only = TRUE)
 
-rerun = FALSE   ## if true, heavy codes will be rerun to recalculate results; if false, results will be loaded from previously saved data
+if (!dir.exists("cache"))
+  dir.create("cache")
 ```
 
 # Timber recovery model
@@ -33,11 +32,11 @@ rerun = FALSE   ## if true, heavy codes will be rerun to recalculate results; if
 
 ### Maturity and disturbance
 
-The timber recovery model used in this study is decribed in a previous publication [@Piponiot2018]. In this model, the total volume of trees $\geq$ 50 cm DBH is modelled as a function of a new variable, the forest maturity, that is itself estimated using volume dynamics data (volume changes from growth and mortality). 
+The timber recovery model used in this study is described in a previous publication [@Piponiot2018]. In this model, the total volume of trees $\geq$ 50 cm DBH is modeled as a function of a new variable, the forest maturity, that is itself estimated using volume dynamics data (volume changes from growth and mortality). 
 
 ```{r, fig.height = 5, fig.width=7}
 
-source("functions/volume.R")
+source("data/volume.R")
 
 tobs = seq(150,180,2)
 vobs = rnorm(length(tobs), volume(tobs, ag = 5, am = 1, bg = 0.008, bm = 0.004, th = 0.035), 1)
@@ -115,7 +114,7 @@ The following figure shows the predicted trajectory of (commercial) timber volum
 
 ```{r illustr_traj_uncert, fig.height=3, fig.width=12}
 
-source("functions/timbRecovery.R")
+source("data/timbRecovery.R")
 
 recov = timbRecovery(timeLength, logIntensity, logCycle, omega0, longitude, latitude, uncertainties = TRUE)
 
@@ -178,7 +177,7 @@ tabScenario = data.table(expand.grid(logIntensity = seq(5,35,5),
                                      siteName = coordinates$siteName))
 tabScenario = merge(tabScenario, coordinates, by = "siteName") 
 
-if (calc_data) {
+if (!file.exists("cache/dfvext_sites.Rdata")) {
   recov = timbRecovery(timeLength, tabScenario$logIntensity, 
                        tabScenario$logCycle, tabScenario$omega0, 
                        tabScenario$longitude, tabScenario$latitude, 
@@ -194,9 +193,9 @@ if (calc_data) {
   
   dfSustain_sites = do.call(rbind, list_df_sustain)
   
-  save(dfSustain_sites, file = "Rdata_files/dfvext_sites.Rdata")
+  save(dfSustain_sites, file = "cache/dfvext_sites.Rdata")
   
-} else load("Rdata_files/dfvext_sites.Rdata")
+} else load("cache/dfvext_sites.Rdata")
 
 ```
 
@@ -293,10 +292,10 @@ if (rerun) {
                             omega0 = seq(0.2, 1, 0.2))
   
   ## evaluate local pre-logging timber volume (m3/ha)     
-  load("variables and parameters/paramStan_maxL.Rdata")
-  load("variables and parameters/FORMINDVariables_maxL.Rdata")
-  load("variables and parameters/stemMortKrig.Rdata")
-  source("functions/volume.R")
+  load("data/paramStan_maxL.Rdata")
+  load("data/FORMINDVariables_maxL.Rdata")
+  load("data/stemMortKrig.Rdata")
+  source("data/volume.R")
   pars_Vrec
   spatVariables = merge(spatVariables, stemMortKrig, by = c("long","lat"))
   spatVariables$stem_mort = 1/(exp(-spatVariables$mu_logit_sm) + 1 )
@@ -307,7 +306,7 @@ if (rerun) {
                                   bg = bP, bm = bM, th = theta)]
 
   ## calculate constant K for each combination of variables
-  load("variables and parameters/areaLogging.Rdata")
+  load("data/areaLogging.Rdata")
   areaLogging_melt = melt(data.table(areaLogging), id.vars = c("long","lat","areaTot"),
                           variable.name = "ppf", value.name = "pArea", variable.factor = TRUE)
   levels(areaLogging_melt$ppf) = c("current","unprot")
@@ -325,7 +324,7 @@ if (rerun) {
   dfVariables = data.table(dfVariables)
   dfVariables[, maxVext := max(K*spatVariables$vol0*omega0), .(K)] ### sometimes > 30 m3/ha... a bit irrealistic but not terrible either
   
-  source("functions/timbRecovery.R")
+  source("data/timbRecovery.R")
 
   # Calculate the number of cores
   no_cores <- detectCores() - 2
@@ -358,9 +357,9 @@ if (rerun) {
   dfVariables$idVar = 1:nrow(dfVariables)
   vextVarAm = merge(vextVarAm, dfVariables[,-"id"], by = "idVar")
 
-  save(volumeVarAm, vextVarAm, file = "Rdata_files/timeToEsgote.Rdata")
+  save(volumeVarAm, vextVarAm, file = "cache/timeToEsgote.Rdata")
 
-} else { load("Rdata_files/timeToEsgote.Rdata") }
+} else { load("cache/timeToEsgote.Rdata") }
 
 
 ## annualise harvests
@@ -424,6 +423,11 @@ ggplot(vextVarAm_ann, aes(x=t, y = med/1e6, ymin = inf/1e6, ymax = sup/1e6,
 
 > Increasing the proportion of timber (by harvesting more species) can increase the probability of ensuring sustainable production.
 
+## Viability of Brazilian forest concesssions
 
+```{r map-brazil-concess}
+grd
+
+```
 
 # References
