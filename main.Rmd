@@ -16,7 +16,7 @@ The aim of this study is to find concrete messages and/or recommendations to be 
 knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, 
                       root.dir = rprojroot::find_rstudio_root_file())
 # load libraries
-packages_needed <- c("knitr", "kableExtra", "data.table", "ggplot2", "parallel")
+packages_needed <- c("knitr", "kableExtra", "data.table", "ggplot2", "parallel", "sp")
 packages_to_install <- packages_needed[!( packages_needed %in% rownames(installed.packages()))]
 if (length(packages_to_install) > 0)
   install.packages(packages_to_install)
@@ -34,9 +34,9 @@ if (!dir.exists("cache"))
 
 The timber recovery model used in this study is described in a previous publication [@Piponiot2018]. In this model, the total volume of trees $\geq$ 50 cm DBH is modeled as a function of a new variable, the forest maturity, that is itself estimated using volume dynamics data (volume changes from growth and mortality). 
 
-```{r, fig.height = 5, fig.width=7}
+```{r illus-vol-recov, fig.height = 5, fig.width=7}
 
-source("data/volume.R")
+source("R/volume.R")
 
 tobs = seq(150,180,2)
 vobs = rnorm(length(tobs), volume(tobs, ag = 5, am = 1, bg = 0.008, bm = 0.004, th = 0.035), 1)
@@ -51,7 +51,7 @@ legend("topleft", legend = c("Observations", "Predictions"), bty = "n",
 
 The maturity increases (1 unit per year) when there is no disturbance and decreases abruptly when there is a disturbance, for example selective logging. 
 
-```{r, fig.height = 5, fig.width=7}
+```{r illus-disturb, fig.height = 5, fig.width=7}
 
 library(diagram)
 
@@ -91,7 +91,7 @@ Three input variables differ among scenarios:
 
 - $\omega 0$: the pre-logging proportion of commercial timber 
 
-```{r}
+```{r setup-inputs}
 timeLength = 1000
 logIntensity = rep(10, 4); logIntensity[2] = 30
 logCycle = rep(35, 4); logCycle[3] = 65
@@ -104,7 +104,7 @@ tabScenario = data.table(scenario = c("default", "highIntensity", "longCycle", "
 
 The following table summarizes the 4 scenarios and the values of each input variable. 
 
-```{r}
+```{r show-scenarios}
 tabScenario %>%
   kable() %>%
   kable_styling()
@@ -112,9 +112,9 @@ tabScenario %>%
 
 The following figure shows the predicted trajectory of (commercial) timber volume stocks for each of the 4 scenarios. 
 
-```{r illustr_traj_uncert, fig.height=3, fig.width=12}
+```{r illus-traj-uncert, fig.height=3, fig.width=12}
 
-source("data/timbRecovery.R")
+source("R/timbRecovery.R")
 
 recov = timbRecovery(timeLength, logIntensity, logCycle, omega0, longitude, latitude, uncertainties = TRUE)
 
@@ -130,7 +130,7 @@ ggplot(dfrecov, aes(x=t, y = med, color = scenario, ymin = inf, ymax = sup)) +
 
 The following figure shows the predicted timber production (m3/ha) at each cutting cycle (30 total) for each of the 4 scenarios. When there is not enough commercial timber left at the end of a cutting cycle to reach the desired logging intensity, the total production decreases (for example in the highIntensity and the lessCommonSpecies scenarios).
 
-```{r illustr_vextReal_uncert, fig.height=3, fig.width=10}
+```{r illus-vextReal-uncert, fig.height=3, fig.width=10}
 vextReal = data.table(recov[[2]])
 vextReal$scenario = tabScenario$scenario[vextReal$site]
 
@@ -141,6 +141,13 @@ ggplot(vextReal, aes(x = ncycle, y = med, color = scenario, ymin = inf, ymax = s
 ```
 
 
+
+
+## Adding silvicultural treatments
+
+
+
+
 # What criteria for sustainability? 
 
 To explore the conditions upon which logging can be considered sustainable, we must first define sustainability. 
@@ -149,7 +156,7 @@ To explore the conditions upon which logging can be considered sustainable, we m
 
 A possible criterion for sustainability is to have a constant production (i.e. no decrease in the volume really extracted) during a given period, e.g. the first 500 years. We illustrate this with the previously-described scenarios.
 
-```{r illustr_sustainability, fig.height=3, fig.width=10}
+```{r illus-sustainability, fig.height=3, fig.width=10}
 df1 = merge(vextReal, tabScenario, by = "scenario")
 df1$logIntensity = as.numeric(substr(df1$intensity, 1,2))
 df1$logCycle = as.numeric(substr(df1$cycle, 1,2))
@@ -165,7 +172,7 @@ ggplot(subset(df1, ncycle*logCycle <= 500), aes(x = ncycle*logCycle, y = med, co
 ```
 
 
-```{r}
+```{r prepare-sustain-matrix-sites}
 timeLength = 1000
 
 coordinates = data.table(siteName = c("Itoupe", "Paragominas", "RioBranco", "Iquitos", "Manaus"), 
@@ -205,7 +212,7 @@ if (!file.exists("cache/dfvext_sites.Rdata")) {
 
 First we simulate timber recovery with $\omega_0 = 1$ (i.e. all species are commercial), and the conditions of central Amazonia (Manaus coordinates). Timber production is considered sustainble when the production is maintained to its desired level (i.e. the logging intensity) during the first 500 years. 
 
-```{r, fig.height = 3, fig.width=5}
+```{r sustain-matrix-manaus, fig.height = 3, fig.width=5}
 dfSustain_sites$sustainable = (dfSustain_sites$pVextTot > 0.99)
 
 ggplot(subset(dfSustain_sites, siteName == "Manaus" & omega0==1 & timeLength == 500) ) + 
@@ -221,7 +228,7 @@ To explore how the location and the proportion of commercial timber can influenc
 
 For each of these 5 locations we tested 5 proportions of commercial timber (from 20% to 100%), with varying logging intensities and cutting cycles. Results are presented in the following picture. 
 
-```{r, fig.height = 10, fig.width=10}
+```{r sustain-matrix-sites, fig.height = 10, fig.width=10}
 
 dfSustain_sites$lab_omega0 = factor(dfSustain_sites$omega0)
 levels(dfSustain_sites$lab_omega0) = paste0("omega0 = ", as.numeric(levels(dfSustain_sites$lab_omega0))*100, "%")
@@ -239,7 +246,7 @@ ggplot(subset(dfSustain_sites, timeLength == 500)) +
 
 Back to $\omega_0=1$ and the Manaus location, now we explore how the period of simulations (until now: 500 years) affects the assessmnet of sustainability. 
 
-```{r, fig.height=4, fig.width = 10}
+```{r sustain-matrix-trec, fig.height=4, fig.width = 10}
 dfSustain_sites$fac_time = factor(dfSustain_sites$timeLength)
 levels(dfSustain_sites$fac_time) = paste(levels(dfSustain_sites$fac_time), "yrs")
 
@@ -247,7 +254,6 @@ ggplot(subset(dfSustain_sites, omega0 == 1 & siteName == "Manaus")) +
   geom_raster(aes(x = logIntensity, y = logCycle, fill = sustainable)) + 
   theme(aspect.ratio=1) + facet_wrap( ~ fac_time, nrow = 2) + 
   labs(x="Logging intensity (m3/ha)", y = "Cutting cycle (yrs)")
-
 ```
 
 > It seems that after 500 years, increasing the period of time does not change much the results: this is good news, we can stick with a 500-yr period!
@@ -278,14 +284,13 @@ Because the proportion of commercial timber affects the timber recovery, we test
 
 The results are presented in 2 graphs: the total timber stocks (over all logged areas in Amazonia) and the total timber production. The first row corresponds to simulations with all currently available permanent production forests (not protected and < 25 km from a road or motorable track); the second row corresponds to simulations with 
 
-```{r available area}
-
+```{r total-timber-amazonia}
 timeLength <- 200
 
 prod_target <- 35 * 1e6
 
-if (rerun) {
-
+if (!file.exists("cache/timeToEsgote.Rdata")) {
+  
   ## create the data table with all variables combinations
   dfVariables = expand.grid(logCycle = c(15, 35, 65), 
                             ppf = c("current","unprot"),
@@ -295,7 +300,7 @@ if (rerun) {
   load("data/paramStan_maxL.Rdata")
   load("data/FORMINDVariables_maxL.Rdata")
   load("data/stemMortKrig.Rdata")
-  source("data/volume.R")
+  source("R/volume.R")
   pars_Vrec
   spatVariables = merge(spatVariables, stemMortKrig, by = c("long","lat"))
   spatVariables$stem_mort = 1/(exp(-spatVariables$mu_logit_sm) + 1 )
@@ -303,8 +308,8 @@ if (rerun) {
   spatVariables = cbind(spatVariables, pars_Vrec)
   spatVariables[, aM := aG_FORMIND - theta * vmax_FORMIND ]
   spatVariables[, vol0 := volume(t = mat0, ag = aG_FORMIND, am = aM,
-                                  bg = bP, bm = bM, th = theta)]
-
+                                 bg = bP, bm = bM, th = theta)]
+  
   ## calculate constant K for each combination of variables
   load("data/areaLogging.Rdata")
   areaLogging_melt = melt(data.table(areaLogging), id.vars = c("long","lat","areaTot"),
@@ -324,41 +329,41 @@ if (rerun) {
   dfVariables = data.table(dfVariables)
   dfVariables[, maxVext := max(K*spatVariables$vol0*omega0), .(K)] ### sometimes > 30 m3/ha... a bit irrealistic but not terrible either
   
-  source("data/timbRecovery.R")
-
+  source("R/timbRecovery.R")
+  
   # Calculate the number of cores
   no_cores <- detectCores() - 2
-
+  
   # Initiate cluster
   cl <- makeCluster(no_cores)
-
+  
   clusterEvalQ(cl, library(data.table))
-
+  
   clusterExport(cl, varlist = c("timbRecovery", "dfVariables", "timeLength", "areaLogging_melt", "spatVariables","rtruncnorm"))
-
+  
   recovChangOmega <- parSapply(cl, 1:nrow(dfVariables), function(i) {
-
+    
     dfArea = subset(areaLogging_melt, ppf == dfVariables$ppf[i])
     recov = timbRecovery(timeLength, logIntensity = dfVariables$K[i]*spatVariables$vol0*dfVariables$omega0[i],
                          logCycle = dfVariables$logCycle[i], omega0 = dfVariables$omega0[i],
                          longitude = spatVariables$long, latitude = spatVariables$lat,
                          area = dfArea$areaTot*dfArea$pArea)
     return(recov)
-
+    
   })
-
+  
   stopCluster(cl)
-
+  
   volumeVarAm = do.call(rbind, lapply(1:nrow(dfVariables), function(i) data.table(recovChangOmega[[1,i]], idVar = i)))
   dfVariables$idVar = 1:nrow(dfVariables)
   volumeVarAm = merge(volumeVarAm, dfVariables[,-"id"], by = "idVar")
-
+  
   vextVarAm = do.call(rbind, lapply(1:nrow(dfVariables), function(i) data.table(recovChangOmega[[2,i]], idVar = i)))
   dfVariables$idVar = 1:nrow(dfVariables)
   vextVarAm = merge(vextVarAm, dfVariables[,-"id"], by = "idVar")
-
+  
   save(volumeVarAm, vextVarAm, file = "cache/timeToEsgote.Rdata")
-
+  
 } else { load("cache/timeToEsgote.Rdata") }
 
 
@@ -380,11 +385,11 @@ volumeVarAm_ann = volumeVarAm[order(t) , .(inf = annualise(inf, logCycle, first(
 vextVarAm_ann = vextVarAm[, .(inf = rep(inf/logCycle, each = logCycle)[1:timeLength], 
                               med = rep(med/logCycle, each = logCycle)[1:timeLength], 
                               sup = rep(sup/logCycle, each = logCycle)[1:timeLength], t = 1:timeLength), 
-                              .(idVar, logCycle, ppf, omega0)]
+                          .(idVar, logCycle, ppf, omega0)]
 ```
 
 
-```{r, fig.height=4, fig.width = 10}
+```{r timber-stocks, fig.height=4, fig.width = 10}
 
 volumeVarAm_ann$omega0 = factor(volumeVarAm_ann$omega0)
 levels(volumeVarAm_ann$omega0) = paste0("omega0 = ",as.numeric(levels(volumeVarAm_ann$omega0))*100,"%")
@@ -402,7 +407,7 @@ ggplot(volumeVarAm_ann, aes(x=t, y = med/1e6, ymin = inf/1e6, ymax = sup/1e6, co
 ```
 
 
-```{r, fig.height=4, fig.width = 10}
+```{r timber-production, fig.height=4, fig.width = 10}
 vextVarAm_ann$omega0 = factor(vextVarAm_ann$omega0)
 levels(vextVarAm_ann$omega0) = paste0("omega0 = ", as.numeric(levels(vextVarAm_ann$omega0))*100,"%")
 
@@ -413,10 +418,9 @@ vextVarAm_ann$ppf = factor(vextVarAm_ann$ppf)
 levels(vextVarAm_ann$ppf) = c("Currently available","All unprotected")
 
 ggplot(vextVarAm_ann, aes(x=t, y = med/1e6, ymin = inf/1e6, ymax = sup/1e6,
-                      colour = logCycle, fill = logCycle)) + geom_line() +
+                          colour = logCycle, fill = logCycle)) + geom_line() +
   facet_grid(ppf ~ omega0)  + geom_ribbon(alpha = 0.2, colour = NA) + 
   labs(x = "Time (yrs)", y = "Timber production (Mm3/yr)") + theme(legend.position = "top")
-
 ```
 
 > When the proportion of commercial timber is low, the timber production decreases rapidly and the demand cannont be met after the first logging cycle. In this case, alternative timber sources may be needed quickly. 
@@ -425,9 +429,177 @@ ggplot(vextVarAm_ann, aes(x=t, y = med/1e6, ymin = inf/1e6, ymax = sup/1e6,
 
 ## Viability of Brazilian forest concesssions
 
+We now carry on the same analysis, but focusing on Brazilian forest concessions. 
+
+We differentiate 3 areas: current concessions, planned concessions, and potential concessions xxx. 
+
+
 ```{r map-brazil-concess}
-grd
+if (! file.exists("data/pconcessions.Rdata")) {
+  concessions <- rgdal::readOGR(dsn = "C:/Users/piponiot-laroche/projets-cirad/vrec-br-concessions/data/amazonia", layer = "test")
+  ext2 <- floor(raster::extent(concessions)) + c(0, 1, 0, 1)
+  rst <- raster::raster(resolution = 0.01, ext = ext2)
+  raster_concessions <- raster::rasterize(concessions, rst)
+  raster_concessions2 <- !is.na(raster_concessions)
+  pconcessions <- raster::aggregate(raster_concessions2, fact = 100)
+  pconcessions <- raster::as.data.frame(pconcessions, xy = TRUE)
+  colnames(pconcessions) <- c("long", "lat", "pConcess")
+  pconcessions <- subset(pconcessions, pConcess > 0)
+  save(pconcessions, file = "data/pconcessions.Rdata")
+} else load("data/pconcessions.Rdata")
+
+load("data/areaLogging.Rdata")
+areaLoggingBR <- areaLogging[, c("long", "lat", "areaTot")]
+areaLoggingBR <- merge(areaLoggingBR, pconcessions, by = c("long", "lat"), all = TRUE)
+areaLoggingBR$pConcess[is.na(areaLoggingBR$pConcess)] <- 0
+```
+
+```{r total-timber-brconcess}
+timeLength <- 200
+prod_target <- 10 * 1e6
+
+## create the data table with all variables combinations
+dfVariables = expand.grid(logCycle = c(15, 35, 65), 
+                          ppf = c("current"), ## change this later when we have all concession area types (future, potential)
+                          omega0 = seq(0.2, 1, 0.2))
+
+if (!file.exists("cache/timeToEsgote_BR.Rdata")) {
+  ## evaluate local pre-logging timber volume (m3/ha)     
+  load("data/paramStan_maxL.Rdata")
+  load("data/FORMINDVariables_maxL.Rdata")
+  load("data/stemMortKrig.Rdata")
+  source("R/volume.R")
+  pars_Vrec
+  spatVariables = merge(spatVariables, stemMortKrig, by = c("long","lat"))
+  spatVariables$stem_mort = 1/(exp(-spatVariables$mu_logit_sm) + 1 )
+  spatVariables$mat0 = spatVariables$stem_mort^(-pars_Vrec$lambda_ti)
+  spatVariables = cbind(spatVariables, pars_Vrec)
+  spatVariables[, aM := aG_FORMIND - theta * vmax_FORMIND ]
+  spatVariables[, vol0 := volume(t = mat0, ag = aG_FORMIND, am = aM,
+                                 bg = bP, bm = bM, th = theta)]
+  
+  ## calculate constant K for each combination of variables
+  areaLogging_melt = melt(data.table(areaLoggingBR), id.vars = c("long","lat","areaTot"),
+                          variable.name = "ppf", value.name = "pArea", variable.factor = TRUE)
+  levels(areaLogging_melt$ppf) = c("current")
+  ## change this later when we have all concession area types (future, potential)
+  
+  ## total volume depending on PPF
+  df = merge(spatVariables, areaLogging_melt, by = c("long","lat"))
+  df = df[,.(volTot = sum(areaTot*100*pArea*vol0)), .(ppf)]
+  
+  dfVariables = merge(dfVariables, df, by = "ppf")
+  dfVariables$K = prod_target * dfVariables$logCycle / (dfVariables$volTot * dfVariables$omega0)
+  
+  if (any (dfVariables$K > 1) )
+    stop("There is not enough timber to meet the annual demand during the first cutting cycle.")
+  
+  dfVariables = data.table(dfVariables)
+  dfVariables[, maxVext := max(K*spatVariables$vol0*omega0), .(K)] 
+  
+  source("R/timbRecovery.R")
+  
+  # Calculate the number of cores
+  no_cores <- detectCores() - 2
+  
+  # Initiate cluster
+  cl <- makeCluster(no_cores)
+  
+  clusterEvalQ(cl, library(data.table))
+  
+  clusterExport(cl, varlist = c("timbRecovery", "dfVariables", "timeLength", "areaLogging_melt", "spatVariables","rtruncnorm"))
+  
+  recovChangOmega <- parSapply(cl, 1:nrow(dfVariables), function(i) {
+    
+    dfArea = subset(areaLogging_melt, ppf == dfVariables$ppf[i])
+    recov = timbRecovery(timeLength = timeLength,
+                        logIntensity = dfVariables$K[i]*spatVariables$vol0*dfVariables$omega0[i],
+                        logCycle = dfVariables$logCycle[i], 
+                        omega0 = dfVariables$omega0[i],
+                         longitude = spatVariables$long, 
+                        latitude = spatVariables$lat,
+                         area = dfArea$areaTot*dfArea$pArea,
+                        dti = NA,
+                        uncertainties = TRUE,
+                        firstIntensity = logIntensity)
+    return(recov)
+    
+  })
+  
+  stopCluster(cl)
+  
+  volumeVarAm = do.call(rbind, lapply(1:nrow(dfVariables), function(i) data.table(recovChangOmega[[1,i]], idVar = i)))
+  dfVariables$idVar = 1:nrow(dfVariables)
+  volumeVarAm = merge(volumeVarAm, dfVariables[,-"id"], by = "idVar")
+  
+  vextVarAm = do.call(rbind, lapply(1:nrow(dfVariables), function(i) data.table(recovChangOmega[[2,i]], idVar = i)))
+  dfVariables$idVar = 1:nrow(dfVariables)
+  vextVarAm = merge(vextVarAm, dfVariables[,-"id"], by = "idVar")
+  
+  save(volumeVarAm, vextVarAm, file = "cache/timeToEsgote_BR.Rdata")
+  
+} else { load("cache/timeToEsgote_BR.Rdata") }
+
+
+## annualise harvests
+
+annualise = function(X, period, X0) {
+  mat = matrix(X0 / period, ncol = length(X), nrow = period)
+  for (i in 1:period) {
+    mat[i, i:length(X)] = X[1:(length(X)-i+1)]/period
+  }
+  return(colSums(mat))
+}
+
+volumeVarAm_ann = volumeVarAm[order(t) , .(inf = annualise(inf, logCycle, first(inf)),
+                                           med = annualise(med, logCycle, first(inf)),
+                                           sup = annualise(sup, logCycle, first(inf)), t),
+                              .(idVar, logCycle, ppf, omega0)]
+
+vextVarAm_ann = vextVarAm[, .(inf = rep(inf/logCycle, each = logCycle)[1:timeLength], 
+                              med = rep(med/logCycle, each = logCycle)[1:timeLength], 
+                              sup = rep(sup/logCycle, each = logCycle)[1:timeLength], t = 1:timeLength), 
+                          .(idVar, logCycle, ppf, omega0)]
+```
+
+
+```{r timber-stock-br, fig.height=4, fig.width = 10}
+
+volumeVarAm_ann$omega0 = factor(volumeVarAm_ann$omega0)
+levels(volumeVarAm_ann$omega0) = paste0("omega0 = ",as.numeric(levels(volumeVarAm_ann$omega0))*100,"%")
+
+volumeVarAm_ann$logCycle = factor(volumeVarAm_ann$logCycle)
+levels(volumeVarAm_ann$logCycle) = paste("Cycle:", levels(volumeVarAm_ann$logCycle), "yrs")
+
+volumeVarAm_ann$ppf = factor(volumeVarAm_ann$ppf)
+levels(volumeVarAm_ann$ppf) = c("Currently available","All unprotected")
+
+ggplot(volumeVarAm_ann, aes(x=t, y = med/1e6, ymin = inf/1e6, ymax = sup/1e6, colour = logCycle, fill = logCycle)) + geom_line() +
+  facet_grid( ppf ~ omega0, scales = "free")  + geom_ribbon(alpha = 0.2, colour = NA) + 
+  labs(x = "Time (yrs)", y = "Timber volume stocks (Mm3)") + theme(legend.position = "top")
 
 ```
+
+
+```{r timber-production-br, fig.height=4, fig.width = 10}
+vextVarAm_ann$omega0 = factor(vextVarAm_ann$omega0)
+levels(vextVarAm_ann$omega0) = paste0("omega0 = ", as.numeric(levels(vextVarAm_ann$omega0))*100,"%")
+
+vextVarAm_ann$logCycle = factor(vextVarAm_ann$logCycle)
+levels(vextVarAm_ann$logCycle) = paste("Cycle:", levels(vextVarAm_ann$logCycle), "yrs")
+
+vextVarAm_ann$ppf = factor(vextVarAm_ann$ppf)
+levels(vextVarAm_ann$ppf) = c("Currently available","All unprotected")
+
+ggplot(vextVarAm_ann, 
+       aes(x=t, y = med/1e6, ymin = inf/1e6, ymax = sup/1e6, 
+           colour = logCycle, fill = logCycle)) + 
+  geom_line() +
+  facet_grid(ppf ~ omega0) + 
+  geom_ribbon(alpha = 0.2, colour = NA) + 
+  labs(x = "Time (yrs)", y = "Timber production (Mm3/yr)") + 
+  theme(legend.position = "top")
+```
+
 
 # References

@@ -1,5 +1,5 @@
 ## when parameter "area" is provided, the function calculates logging trajectories as the sum of all
-## sites' outputs (timber volume, extrated volume) multiplied by their area
+## sites' outputs (timber volume, extracted volume) multiplied by their area
 
 timbRecovery = function(timeLength,
                         logIntensity,
@@ -10,7 +10,9 @@ timbRecovery = function(timeLength,
                         dti = NA,
                         uncertainties = TRUE,
                         area = NA,
-                        firstIntensity = logIntensity) {
+                        firstIntensity = logIntensity,
+                        incr_silv = 0
+) {
   ## without error propagation: timbRecovery
   
   if (length(longitude) != length(latitude))
@@ -69,7 +71,7 @@ timbRecovery = function(timeLength,
   )
   spatVariables = spatVariables[, -grep("logit", colnames(spatVariables)), with = FALSE]
   
-  dfPred = data.table(
+  dfPred = data.table::data.table(
     site = 1:length(longitude),
     long = round(longitude + 0.5) - 0.5,
     lat = round(latitude + 0.5) - 0.5,
@@ -151,14 +153,14 @@ timbRecovery = function(timeLength,
     )
     vextReal = cbind(vextReal, newParams[[3]])
     
-    ## update the proprotion of commercial recruits
+    ## update the proportion of commercial recruits
     omR <- omPreLog[, i]
     ## prelogging proportion of commercial trees < proportion of commercial species in recruited trees < initial proportion of commercial species
     omR[omPreLog[, i] <= omPreLog[, 1]] <-
       runif(sum(omPreLog[, i] <= omPreLog[, 1]),
             min = omPreLog[omPreLog[, i] <= omPreLog[, 1], i],
             max = omPreLog[omPreLog[, i] <= omPreLog[, 1], 1])
-    # in some cases om > omR (due probably to the discretisation of om calculation, but difference is not very important)
+    # in some cases om > omR (due probably to the discretization of om calculation, but difference is not very important)
     omR[omPreLog[, i] > omPreLog[, 1]] <-
       runif(sum(omPreLog[, i] > omPreLog[, 1]),
             min = omPreLog[omPreLog[, i] > omPreLog[, 1], 1],
@@ -297,7 +299,7 @@ timbRecovery = function(timeLength,
         sup = quantile(sum(volume * omega * area), 0.975)
       ) , .(t)]
     } else {
-      predTime[, .(volTimb = sum(volume * omega * area)), .(t)]
+      predTime[, .(volTimb = sum(volume * omega * area)), .(t)]  ## xxx maybe add here a silviculture module
       volInterval = predTime[, c("t", "volTimb")]
     }
     
