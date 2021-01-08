@@ -16,7 +16,7 @@ The aim of this study is to find concrete messages and/or recommendations to be 
 knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, 
                       root.dir = rprojroot::find_rstudio_root_file())
 # load libraries
-packages_needed <- c("knitr", "kableExtra", "data.table", "ggplot2", "parallel", "sp")
+packages_needed <- c("knitr", "kableExtra", "data.table", "ggplot2", "parallel", "sp", "truncnorm")
 packages_to_install <- packages_needed[!( packages_needed %in% rownames(installed.packages()))]
 if (length(packages_to_install) > 0)
   install.packages(packages_to_install)
@@ -98,7 +98,7 @@ logCycle = rep(35, 4); logCycle[3] = 65
 omega0 = rep(0.90, 4); omega0[4] = 0.30
 longitude = rep(-60.6, 4) ## location: Manaus
 latitude = rep(-3.3, 4)
-tabScenario = data.table(scenario = c("default", "highIntensity", "longCycle", "lessCommSpecies"), 
+tabScenario = data.table(scenario = c("default", "highIntensity", "longCycle", "fewerCommSpecies"), 
                          intensity = paste(logIntensity, "m3/ha"), cycle = paste(logCycle, "yr"), omega0 = paste0(omega0*100, "%"))
 ```
 
@@ -113,7 +113,6 @@ tabScenario %>%
 The following figure shows the predicted trajectory of (commercial) timber volume stocks for each of the 4 scenarios. 
 
 ```{r illus-traj-uncert, fig.height=3, fig.width=12}
-
 source("R/timbRecovery.R")
 
 recov = timbRecovery(timeLength, logIntensity, logCycle, omega0, longitude, latitude, uncertainties = TRUE)
@@ -125,7 +124,6 @@ ggplot(dfrecov, aes(x=t, y = med, color = scenario, ymin = inf, ymax = sup)) +
   geom_ribbon(aes(fill = scenario), colour = NA, alpha = 0.1) + geom_line() + 
   theme(legend.position = "none", panel.background = element_rect(fill = 'white', colour="black")) + 
   xlab("Time since first logging event (yr)") + ylab("Commercial timber volume (m3/ha)")  + facet_wrap(~scenario, nrow=1) 
-
 ```
 
 The following figure shows the predicted timber production (m3/ha) at each cutting cycle (30 total) for each of the 4 scenarios. When there is not enough commercial timber left at the end of a cutting cycle to reach the desired logging intensity, the total production decreases (for example in the highIntensity and the lessCommonSpecies scenarios).
@@ -141,11 +139,9 @@ ggplot(vextReal, aes(x = ncycle, y = med, color = scenario, ymin = inf, ymax = s
 ```
 
 
-
-
 ## Adding silvicultural treatments
 
-
+According to the literature, the effect of silvicultural treatments such as liana removal  (and in some cases tree)
 
 
 # What criteria for sustainability? 
@@ -504,39 +500,37 @@ if (!file.exists("cache/timeToEsgote_BR.Rdata")) {
   
   # Initiate cluster
   cl <- makeCluster(no_cores)
-  
+
   clusterEvalQ(cl, library(data.table))
-  
-  clusterExport(cl, varlist = c("timbRecovery", "dfVariables", "timeLength", "areaLogging_melt", "spatVariables","rtruncnorm"))
-  
+
+  clusterExport(cl, varlist = c("timbRecovery", "dfVariables", "timeLength", "areaLogging_melt", "spatVariables", "logIntensity", "rtruncnorm"))
+
   recovChangOmega <- parSapply(cl, 1:nrow(dfVariables), function(i) {
-    
     dfArea = subset(areaLogging_melt, ppf == dfVariables$ppf[i])
     recov = timbRecovery(timeLength = timeLength,
-                        logIntensity = dfVariables$K[i]*spatVariables$vol0*dfVariables$omega0[i],
-                        logCycle = dfVariables$logCycle[i], 
-                        omega0 = dfVariables$omega0[i],
+                         logIntensity = dfVariables$K[i]*spatVariables$vol0*dfVariables$omega0[i],
+                         logCycle = dfVariables$logCycle[i], 
+                         omega0 = dfVariables$omega0[i],
                          longitude = spatVariables$long, 
-                        latitude = spatVariables$lat,
+                         latitude = spatVariables$lat,
                          area = dfArea$areaTot*dfArea$pArea,
-                        dti = NA,
-                        uncertainties = TRUE,
-                        firstIntensity = logIntensity)
+                         dti = NA,
+                         uncertainties = TRUE)
     return(recov)
     
   })
   
   stopCluster(cl)
   
-  volumeVarAm = do.call(rbind, lapply(1:nrow(dfVariables), function(i) data.table(recovChangOmega[[1,i]], idVar = i)))
+  volumeVarBr = do.call(rbind, lapply(1:nrow(dfVariables), function(i) data.table(recovChangOmega[[1,i]], idVar = i)))
   dfVariables$idVar = 1:nrow(dfVariables)
-  volumeVarAm = merge(volumeVarAm, dfVariables[,-"id"], by = "idVar")
+  volumeVarBr = merge(volumeVarBr, dfVariables[,-"id"], by = "idVar")
   
-  vextVarAm = do.call(rbind, lapply(1:nrow(dfVariables), function(i) data.table(recovChangOmega[[2,i]], idVar = i)))
+  vextVarBr = do.call(rbind, lapply(1:nrow(dfVariables), function(i) data.table(recovChangOmega[[2,i]], idVar = i)))
   dfVariables$idVar = 1:nrow(dfVariables)
-  vextVarAm = merge(vextVarAm, dfVariables[,-"id"], by = "idVar")
+  vextVarBr = merge(vextVarBr, dfVariables[,-"id"], by = "idVar")
   
-  save(volumeVarAm, vextVarAm, file = "cache/timeToEsgote_BR.Rdata")
+  save(vextVarBr, vextVarBr, file = "cache/timeToEsgote_BR.Rdata")
   
 } else { load("cache/timeToEsgote_BR.Rdata") }
 
@@ -551,12 +545,12 @@ annualise = function(X, period, X0) {
   return(colSums(mat))
 }
 
-volumeVarAm_ann = volumeVarAm[order(t) , .(inf = annualise(inf, logCycle, first(inf)),
+volumeVarBr_ann = volumeVarBr[order(t) , .(inf = annualise(inf, logCycle, first(inf)),
                                            med = annualise(med, logCycle, first(inf)),
                                            sup = annualise(sup, logCycle, first(inf)), t),
                               .(idVar, logCycle, ppf, omega0)]
 
-vextVarAm_ann = vextVarAm[, .(inf = rep(inf/logCycle, each = logCycle)[1:timeLength], 
+vextVarBr_ann = vextVarBr[, .(inf = rep(inf/logCycle, each = logCycle)[1:timeLength], 
                               med = rep(med/logCycle, each = logCycle)[1:timeLength], 
                               sup = rep(sup/logCycle, each = logCycle)[1:timeLength], t = 1:timeLength), 
                           .(idVar, logCycle, ppf, omega0)]
@@ -564,34 +558,32 @@ vextVarAm_ann = vextVarAm[, .(inf = rep(inf/logCycle, each = logCycle)[1:timeLen
 
 
 ```{r timber-stock-br, fig.height=4, fig.width = 10}
+volumeVarBr_ann$omega0 = factor(volumeVarBr_ann$omega0)
+levels(volumeVarBr_ann$omega0) = paste0("omega0 = ",as.numeric(levels(volumeVarBr_ann$omega0))*100,"%")
 
-volumeVarAm_ann$omega0 = factor(volumeVarAm_ann$omega0)
-levels(volumeVarAm_ann$omega0) = paste0("omega0 = ",as.numeric(levels(volumeVarAm_ann$omega0))*100,"%")
+volumeVarBr_ann$logCycle = factor(volumeVarBr_ann$logCycle)
+levels(volumeVarBr_ann$logCycle) = paste("Cycle:", levels(volumeVarBr_ann$logCycle), "yrs")
 
-volumeVarAm_ann$logCycle = factor(volumeVarAm_ann$logCycle)
-levels(volumeVarAm_ann$logCycle) = paste("Cycle:", levels(volumeVarAm_ann$logCycle), "yrs")
+volumeVarBr_ann$ppf = factor(volumeVarBr_ann$ppf)
+levels(volumeVarBr_ann$ppf) = c("Currently available","All unprotected")
 
-volumeVarAm_ann$ppf = factor(volumeVarAm_ann$ppf)
-levels(volumeVarAm_ann$ppf) = c("Currently available","All unprotected")
-
-ggplot(volumeVarAm_ann, aes(x=t, y = med/1e6, ymin = inf/1e6, ymax = sup/1e6, colour = logCycle, fill = logCycle)) + geom_line() +
+ggplot(volumeVarBr_ann, aes(x=t, y = med/1e6, ymin = inf/1e6, ymax = sup/1e6, colour = logCycle, fill = logCycle)) + geom_line() +
   facet_grid( ppf ~ omega0, scales = "free")  + geom_ribbon(alpha = 0.2, colour = NA) + 
   labs(x = "Time (yrs)", y = "Timber volume stocks (Mm3)") + theme(legend.position = "top")
-
 ```
 
 
 ```{r timber-production-br, fig.height=4, fig.width = 10}
-vextVarAm_ann$omega0 = factor(vextVarAm_ann$omega0)
-levels(vextVarAm_ann$omega0) = paste0("omega0 = ", as.numeric(levels(vextVarAm_ann$omega0))*100,"%")
+vextVarBr_ann$omega0 = factor(vextVarBr_ann$omega0)
+levels(vextVarBr_ann$omega0) = paste0("omega0 = ", as.numeric(levels(vextVarBr_ann$omega0))*100,"%")
 
-vextVarAm_ann$logCycle = factor(vextVarAm_ann$logCycle)
-levels(vextVarAm_ann$logCycle) = paste("Cycle:", levels(vextVarAm_ann$logCycle), "yrs")
+vextVarBr_ann$logCycle = factor(vextVarBr_ann$logCycle)
+levels(vextVarBr_ann$logCycle) = paste("Cycle:", levels(vextVarBr_ann$logCycle), "yrs")
 
-vextVarAm_ann$ppf = factor(vextVarAm_ann$ppf)
-levels(vextVarAm_ann$ppf) = c("Currently available","All unprotected")
+vextVarBr_ann$ppf = factor(vextVarBr_ann$ppf)
+levels(vextVarBr_ann$ppf) = c("Currently available","All unprotected")
 
-ggplot(vextVarAm_ann, 
+ggplot(vextVarBr_ann, 
        aes(x=t, y = med/1e6, ymin = inf/1e6, ymax = sup/1e6, 
            colour = logCycle, fill = logCycle)) + 
   geom_line() +
