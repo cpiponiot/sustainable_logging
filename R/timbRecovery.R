@@ -10,11 +10,11 @@ timbRecovery = function(timeLength,
                         dti = NA,
                         uncertainties = TRUE,
                         area = NA,
-                        firstIntensity = logIntensity,
                         incr_silv = 0
 ) {
   ## without error propagation: timbRecovery
   
+  ## error checks
   if (length(longitude) != length(latitude))
     stop("Coordinates should have the same size.")
   
@@ -36,89 +36,20 @@ timbRecovery = function(timeLength,
   if (sum(is.na(area)) == 0 & length(area) != length(longitude))
     stop("area should have the same size as coordinates.")
   
-  if (uncertainties) {
-    load("data/paramStan.Rdata")
-    load("data/FORMINDVariables.Rdata")
-    load("data/stemMortKrig.Rdata")
-  } else {
-    load("data/paramStan_maxL.Rdata")
-    load("data/FORMINDVariables_maxL.Rdata")
-    load("data/stemMortKrig.Rdata")
-    stemMortKrig$sd_logit_sm = 0
-    spatVariables$iter = "maxL"
-    pars_Vrec$iter = "maxL"
-    pars_rho$iter = "maxL"
-    pars_pR$iter = "maxL"
-  }
-  source("R/omega_t.R")
-  source("R/updateLoggingParams.R")
+  ## load all functions
+  file.sources = list.files(path = "R/", pattern="*.R", full.names = TRUE)
+  sapply(file.sources,source,.GlobalEnv)
   
-  spatVariables = merge(spatVariables, stemMortKrig, by = c("long", "lat"))
+  ## prepare prediction data frame
+  variables <- data.frame(site = 1:length(longitude), 
+                          longitude, latitude, logIntensity, logCycle, omega0)
   
-  logit = function(x)
-    log(x / (1 - x))
-  logist = function(x)
-    1 / (exp(-x) + 1)
-  
-  spatVariables$stem_mort = logist(
-    truncnorm::rtruncnorm(
-      nrow(spatVariables),
-      spatVariables$mu_logit_sm,
-      spatVariables$sd_logit_sm,
-      a = logit(0.005),
-      b = logit(0.05)
-    )
-  )
-  spatVariables = spatVariables[, -grep("logit", colnames(spatVariables)), with = FALSE]
-  
-  dfPred = data.table::data.table(
-    site = 1:length(longitude),
-    long = round(longitude + 0.5) - 0.5,
-    lat = round(latitude + 0.5) - 0.5,
-    logIntensity = logIntensity,
-    logCycle = logCycle,
-    omega0 = omega0,
-    dti = dti
-  )
-  
-  if (nrow(merge(dfPred, spatVariables, by = c("long", "lat"))) < nrow(dfPred))
-    stop(paste(
-      nrow(dfPred) - nrow(merge(
-        dfPred, spatVariables, by = c("long", "lat")
-      )),
-      "locations are outside the Amazon region."
-    ))
-  
-  dfPred = merge(dfPred, spatVariables, by = c("long", "lat"))
-  dfPred = merge(dfPred, pars_Vrec[, -"lp__"], by = "iter")
-  dfPred = merge(dfPred, pars_pR[, -"lp__"], by = "iter")
-  dfPred = merge(dfPred, pars_rho[, -"lp__"], by = "iter")
-  
-  dfPred$aM = dfPred$aG_FORMIND - dfPred$vmax_FORMIND * pars_Vrec$theta
-  ##!! problem: aM < 0
-  ## for now
-  counts = 0 ## for safety
-  while (any(dfPred$aM < 0) & counts < 100) {
-    new_df = dfPred[aM < 0, c("iter", "long", "lat")]
-    new_df$iter = sample(1:max(spatVariables$iter), sum(dfPred$aM < 0), replace = TRUE)
-    new_df = merge(new_df, spatVariables, by = c("iter", "long", "lat"))
-    
-    dfPred[aM < 0, c("aG_FORMIND", "vmax_FORMIND")] <-
-      new_df[, c("aG_FORMIND", "vmax_FORMIND")]
-    dfPred$aM = dfPred$aG_FORMIND - dfPred$vmax_FORMIND * pars_Vrec$theta
-    
-    counts = counts + 1
-  }
-  
-  if (uncertainties) {
-    dfPred = merge(dfPred, data.table(iter = 1:100, pdef = rbeta(100, 6, 14)), by = "iter")
-  } else
-    dfPred$pdef = 0.3
+  dfPred <- spatialPars(variables[, c("longitude", "latitude")], uncert = uncertainties)
+  dfPred <- merge(dfPred, variables, by = "site")
   
   ## initial maturity
   if (any(is.na(dti)))
     dfPred$dti = sample(pars_dti, nrow(dfPred), replace = TRUE)
-  
   dfPred[, matInit := stem_mort ^ (-lambda_ti) * (1 - dti)]
   
   ## number of cycles to reach timeLength
@@ -127,17 +58,16 @@ timbRecovery = function(timeLength,
   matPreLog = matrix(dfPred$matInit, ncol = 1)
   omPreLog = matrix(dfPred$omega0, ncol = 1)
   omPostLog = c()
+  vPreLog = c()
+  vPostLog = c()
   omRecruits = c()
   vextReal = c()
   
   for (i in 1:nCycles) {
     updatedLogIntens = dfPred$logIntensity
-    if (i == 1) {
-      updatedLogIntens = firstIntensity
-    }
     
     ## update stand parameters (maturity, proportion of commercial species) after logging
-    newParams = updateLoggingParams(
+    newParams <- updateLoggingParams(
       mat0 = matPreLog[, i],
       matInit = matPreLog[, 1],
       omega0 = omPreLog[, i],
@@ -151,7 +81,7 @@ timbRecovery = function(timeLength,
       psi = dfPred$rho,
       e = dfPred$e
     )
-    vextReal = cbind(vextReal, newParams[[3]])
+    vextReal <- cbind(vextReal, newParams[[3]])
     
     ## update the proportion of commercial recruits
     omR <- omPreLog[, i]
@@ -330,3 +260,8 @@ timbRecovery = function(timeLength,
   
   return(list(volInterval, dfVextReal))
 }
+
+logit = function(x){
+  log(x / (1 - x))}
+logist = function(x){
+  1 / (exp(-x) + 1)}
