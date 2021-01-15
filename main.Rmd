@@ -115,10 +115,10 @@ The following figure shows the predicted trajectory of (commercial) timber volum
 ```{r illus-traj-uncert, fig.height=3, fig.width=12}
 source("R/timbRecovery.R")
 
-recov = timbRecovery(timeLength, logIntensity, logCycle, omega0, longitude, latitude, uncertainties = TRUE)
+recov <- timbRecovery(timeLength, logIntensity, logCycle, omega0, longitude, latitude, uncertainties = TRUE)
 
-dfrecov = recov[[1]]
-dfrecov$scenario = tabScenario$scenario[dfrecov$site]
+dfrecov <- recov[[1]]
+dfrecov$scenario <- tabScenario$scenario[dfrecov$site]
 
 ggplot(dfrecov, aes(x=t, y = med, color = scenario, ymin = inf, ymax = sup)) + 
   geom_ribbon(aes(fill = scenario), colour = NA, alpha = 0.1) + geom_line() + 
@@ -432,7 +432,9 @@ We differentiate 3 areas: current concessions, planned concessions, and potentia
 
 ```{r map-brazil-concess}
 if (! file.exists("data/pconcessions.Rdata")) {
-  concessions <- rgdal::readOGR(dsn = "C:/Users/piponiot-laroche/projets-cirad/vrec-br-concessions/data/amazonia", layer = "test")
+  ## download: http://www.florestal.gov.br/component/content/article/127-informacoes-florestais/cadastro-nacional-de-florestas-publicas-cnfp/1894-cadastro-nacional-de-florestas-publicas-atualizacao-2019?Itemid=
+  ## concessions
+  concessions <- rgdal::readOGR(dsn = "shapefiles/final", layer = "BRconcessions")
   ext2 <- floor(raster::extent(concessions)) + c(0, 1, 0, 1)
   rst <- raster::raster(resolution = 0.01, ext = ext2)
   raster_concessions <- raster::rasterize(concessions, rst)
@@ -440,7 +442,19 @@ if (! file.exists("data/pconcessions.Rdata")) {
   pconcessions <- raster::aggregate(raster_concessions2, fact = 100)
   pconcessions <- raster::as.data.frame(pconcessions, xy = TRUE)
   colnames(pconcessions) <- c("long", "lat", "pConcess")
-  pconcessions <- subset(pconcessions, pConcess > 0)
+  ## flonas
+  flonas <- rgdal::readOGR(dsn = "shapefiles/final", layer = "BRflonas")
+  ext2 <- floor(raster::extent(flonas)) + c(0, 1, 0, 1)
+  rst <- raster::raster(resolution = 0.01, ext = ext2)
+  raster_flonas <- raster::rasterize(flonas, rst)
+  raster_flonas2 <- !is.na(raster_flonas)
+  pflonas <- raster::aggregate(raster_flonas2, fact = 100)
+  pflonas <- raster::as.data.frame(pflonas, xy = TRUE)
+  colnames(pflonas) <- c("long", "lat", "pFlona")
+  
+  pconcessions <- merge(pconcessions, pflonas, by = c("long", "lat"), all = TRUE)
+  pconcessions[is.na(pconcessions$pConcess), "pConcess"] <- 0
+  pconcessions <- subset(pconcessions, pConcess > 0 | pFlona > 0)
   save(pconcessions, file = "data/pconcessions.Rdata")
 } else load("data/pconcessions.Rdata")
 
@@ -448,15 +462,17 @@ load("data/areaLogging.Rdata")
 areaLoggingBR <- areaLogging[, c("long", "lat", "areaTot")]
 areaLoggingBR <- merge(areaLoggingBR, pconcessions, by = c("long", "lat"), all = TRUE)
 areaLoggingBR$pConcess[is.na(areaLoggingBR$pConcess)] <- 0
+areaLoggingBR$pFlona[is.na(areaLoggingBR$pFlona)] <- 0
 ```
 
 ```{r total-timber-brconcess}
 timeLength <- 200
-prod_target <- 10 * 1e6
+# prod_target <- 1 * 1e6
 
 ## create the data table with all variables combinations
 dfVariables = expand.grid(logCycle = c(15, 35, 65), 
-                          ppf = c("current"), ## change this later when we have all concession area types (future, potential)
+                          vext = c(10, 20, 30), 
+                          ppf = c("current", "potential"), ## change this later when we have all concession area types (future, potential)
                           omega0 = seq(0.2, 1, 0.2))
 
 if (!file.exists("cache/timeToEsgote_BR.Rdata")) {
@@ -473,25 +489,11 @@ if (!file.exists("cache/timeToEsgote_BR.Rdata")) {
   spatVariables[, aM := aG_FORMIND - theta * vmax_FORMIND ]
   spatVariables[, vol0 := volume(t = mat0, ag = aG_FORMIND, am = aM,
                                  bg = bP, bm = bM, th = theta)]
-  
-  ## calculate constant K for each combination of variables
-  areaLogging_melt = melt(data.table(areaLoggingBR), id.vars = c("long","lat","areaTot"),
+  spatVariables <- merge(spatVariables, areaLoggingBR, by = c("long", "lat"), all = TRUE)
+  spatVariables <- melt(data.table(spatVariables), measure.vars = c("pConcess", "pFlona"),
                           variable.name = "ppf", value.name = "pArea", variable.factor = TRUE)
-  levels(areaLogging_melt$ppf) = c("current")
-  ## change this later when we have all concession area types (future, potential)
-  
-  ## total volume depending on PPF
-  df = merge(spatVariables, areaLogging_melt, by = c("long","lat"))
-  df = df[,.(volTot = sum(areaTot*100*pArea*vol0)), .(ppf)]
-  
-  dfVariables = merge(dfVariables, df, by = "ppf")
-  dfVariables$K = prod_target * dfVariables$logCycle / (dfVariables$volTot * dfVariables$omega0)
-  
-  if (any (dfVariables$K > 1) )
-    stop("There is not enough timber to meet the annual demand during the first cutting cycle.")
-  
-  dfVariables = data.table(dfVariables)
-  dfVariables[, maxVext := max(K*spatVariables$vol0*omega0), .(K)] 
+  spatVariables <- subset(spatVariables, pArea > 0)
+  levels(spatVariables$ppf) = c("current", "potential")
   
   source("R/timbRecovery.R")
   
@@ -506,14 +508,16 @@ if (!file.exists("cache/timeToEsgote_BR.Rdata")) {
   clusterExport(cl, varlist = c("timbRecovery", "dfVariables", "timeLength", "areaLogging_melt", "spatVariables", "logIntensity", "rtruncnorm"))
 
   recovChangOmega <- parSapply(cl, 1:nrow(dfVariables), function(i) {
-    dfArea = subset(areaLogging_melt, ppf == dfVariables$ppf[i])
+    ## subset spatialvariables to get only ppf
+    dfSites = subset(spatVariables, ppf == dfVariables$ppf[i])
+    
     recov = timbRecovery(timeLength = timeLength,
-                         logIntensity = dfVariables$K[i]*spatVariables$vol0*dfVariables$omega0[i],
+                         logIntensity = dfVariables$vext[i],
                          logCycle = dfVariables$logCycle[i], 
                          omega0 = dfVariables$omega0[i],
-                         longitude = spatVariables$long, 
-                         latitude = spatVariables$lat,
-                         area = dfArea$areaTot*dfArea$pArea,
+                         longitude = dfSites$long, 
+                         latitude = dfSites$lat,
+                         area = dfSites$areaTot*dfSites$pArea,
                          dti = NA,
                          uncertainties = TRUE)
     return(recov)
@@ -524,15 +528,15 @@ if (!file.exists("cache/timeToEsgote_BR.Rdata")) {
   
   volumeVarBr = do.call(rbind, lapply(1:nrow(dfVariables), function(i) data.table(recovChangOmega[[1,i]], idVar = i)))
   dfVariables$idVar = 1:nrow(dfVariables)
-  volumeVarBr = merge(volumeVarBr, dfVariables[,-"id"], by = "idVar")
+  volumeVarBr = merge(volumeVarBr, dfVariables, by = "idVar")
   
   vextVarBr = do.call(rbind, lapply(1:nrow(dfVariables), function(i) data.table(recovChangOmega[[2,i]], idVar = i)))
   dfVariables$idVar = 1:nrow(dfVariables)
-  vextVarBr = merge(vextVarBr, dfVariables[,-"id"], by = "idVar")
+  vextVarBr = merge(vextVarBr, dfVariables, by = "idVar")
   
-  save(vextVarBr, vextVarBr, file = "cache/timeToEsgote_BR.Rdata")
+  save(vextVarBr, vextVarBr, file = "cache/production_concessionsBR.Rdata")
   
-} else { load("cache/timeToEsgote_BR.Rdata") }
+} else { load("cache/production_concessionsBR.Rdata") }
 
 
 ## annualise harvests
@@ -567,7 +571,7 @@ levels(volumeVarBr_ann$logCycle) = paste("Cycle:", levels(volumeVarBr_ann$logCyc
 volumeVarBr_ann$ppf = factor(volumeVarBr_ann$ppf)
 levels(volumeVarBr_ann$ppf) = c("Currently available","All unprotected")
 
-ggplot(volumeVarBr_ann, aes(x=t, y = med/1e6, ymin = inf/1e6, ymax = sup/1e6, colour = logCycle, fill = logCycle)) + geom_line() +
+ggplot(volumeVarBr_ann, aes(x=t, y = med/1e6, ymin = inf/1e6, ymax = sup/1e6, colour = paste(vext, logCycle), fill = logCycle)) + geom_line() +
   facet_grid( ppf ~ omega0, scales = "free")  + geom_ribbon(alpha = 0.2, colour = NA) + 
   labs(x = "Time (yrs)", y = "Timber volume stocks (Mm3)") + theme(legend.position = "top")
 ```
