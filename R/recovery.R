@@ -57,6 +57,6 @@ recovery <- function (vol1,
   if (keepAll) {
     return(data.frame(trec = 1:logCycle, volume, omega))
   } else {
-    return(c(last(volume), last(omega)))
+    return(c(data.table::last(volume), data.table::last(omega)))
   }
 }

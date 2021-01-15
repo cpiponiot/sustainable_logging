@@ -78,7 +78,7 @@ spatialPars <- function(coords, uncert = TRUE) {
   }
   
   if (uncert) {
-    dfPred = merge(dfPred, data.table(iter = 1:100, pdef = rbeta(100, 6, 14)), by = "iter")
+    dfPred = merge(dfPred, data.table::data.table(iter = 1:100, pdef = rbeta(100, 6, 14)), by = "iter")
   } else
     dfPred$pdef = 0.3
   

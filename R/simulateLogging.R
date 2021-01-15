@@ -31,7 +31,7 @@ simulateLogging <- function(timeLength,
                             dti = NA,
                             uncertainties = TRUE,
                             area = NA,
-                            incr_silv = NULL, 
+                            silv = NULL, 
                             keepAll = FALSE
 ) {
   ## without error propagation: timbRecovery
@@ -75,8 +75,10 @@ simulateLogging <- function(timeLength,
   # vextReal = c()
   
   ## initial maturity and volume
-  if (any(is.na(dti)))
+  if (any(is.na(dti))) {
+    load("data/paramStan.Rdata")
     dfPred$dti = sample(pars_dti, nrow(dfPred), replace = TRUE)
+  }
   dfPred[, matInit := stem_mort ^ (-lambda_ti) * (1 - dti)]
   dfPred[, vol0 := volume(matInit, aG_FORMIND, aM, bP, bM, theta, pdef)]
   
@@ -85,7 +87,7 @@ simulateLogging <- function(timeLength,
   dfPred$volPre <- dfPred$vol0
   dfPred$omPre <- dfPred$omega0
   list_results <- lapply(1:nCycles, function(i) {
-    results <- dfPred[, logging(volPre, omPre, logIntensity, pdef, psi, e)]
+    results <- dfPred[, logging(volPre, omPre, logIntensity, pdef, rho, e)]
     results <- cbind(dfPred[, c("site","iter")], results)
     ## post logging vol and omega
     dfPred$vol1 <- results$volPost
@@ -114,7 +116,7 @@ simulateLogging <- function(timeLength,
     } else {
       results <- merge(results, rectot, by = c("site", "iter"))
       ## update volPre and omPre
-      setDT(rectot)
+      data.table::setDT(rectot)
       rectot[, tcycle := max(trec), .(iter, site)]
       dfPred$volPre <- rectot[trec==tcycle, 1]
       dfPred$volPre <- rectot[trec==tcycle,2]
