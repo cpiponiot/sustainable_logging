@@ -31,7 +31,7 @@ simulateLogging <- function(timeLength,
                             dti = NA,
                             uncertainties = TRUE,
                             area = NA,
-                            silv = NULL, 
+                            silv = c(0,0), 
                             keepAll = FALSE
 ) {
   ## without error propagation: timbRecovery
