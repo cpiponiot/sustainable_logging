@@ -467,15 +467,13 @@ areaLoggingBR$pFlona[is.na(areaLoggingBR$pFlona)] <- 0
 
 ```{r total-timber-brconcess}
 timeLength <- 200
-# prod_target <- 1 * 1e6
-
 ## create the data table with all variables combinations
 dfVariables = expand.grid(logCycle = c(15, 35, 65), 
                           vext = c(10, 20, 30), 
                           ppf = c("current", "potential"), ## change this later when we have all concession area types (future, potential)
                           omega0 = seq(0.2, 1, 0.2))
 
-if (!file.exists("cache/timeToEsgote_BR.Rdata")) {
+if (!file.exists("cache/production_concessionsBR.Rdata")) {
   ## evaluate local pre-logging timber volume (m3/ha)     
   load("data/paramStan_maxL.Rdata")
   load("data/FORMINDVariables_maxL.Rdata")
@@ -491,7 +489,7 @@ if (!file.exists("cache/timeToEsgote_BR.Rdata")) {
                                  bg = bP, bm = bM, th = theta)]
   spatVariables <- merge(spatVariables, areaLoggingBR, by = c("long", "lat"), all = TRUE)
   spatVariables <- melt(data.table(spatVariables), measure.vars = c("pConcess", "pFlona"),
-                          variable.name = "ppf", value.name = "pArea", variable.factor = TRUE)
+                        variable.name = "ppf", value.name = "pArea", variable.factor = TRUE)
   spatVariables <- subset(spatVariables, pArea > 0)
   levels(spatVariables$ppf) = c("current", "potential")
   
@@ -502,11 +500,11 @@ if (!file.exists("cache/timeToEsgote_BR.Rdata")) {
   
   # Initiate cluster
   cl <- makeCluster(no_cores)
-
+  
   clusterEvalQ(cl, library(data.table))
-
+  
   clusterExport(cl, varlist = c("timbRecovery", "dfVariables", "timeLength", "areaLogging_melt", "spatVariables", "logIntensity", "rtruncnorm"))
-
+  
   recovChangOmega <- parSapply(cl, 1:nrow(dfVariables), function(i) {
     ## subset spatialvariables to get only ppf
     dfSites = subset(spatVariables, ppf == dfVariables$ppf[i])
@@ -534,7 +532,7 @@ if (!file.exists("cache/timeToEsgote_BR.Rdata")) {
   dfVariables$idVar = 1:nrow(dfVariables)
   vextVarBr = merge(vextVarBr, dfVariables, by = "idVar")
   
-  save(vextVarBr, vextVarBr, file = "cache/production_concessionsBR.Rdata")
+  save(volumeVarBr, vextVarBr, file = "cache/production_concessionsBR.Rdata")
   
 } else { load("cache/production_concessionsBR.Rdata") }
 
@@ -552,12 +550,12 @@ annualise = function(X, period, X0) {
 volumeVarBr_ann = volumeVarBr[order(t) , .(inf = annualise(inf, logCycle, first(inf)),
                                            med = annualise(med, logCycle, first(inf)),
                                            sup = annualise(sup, logCycle, first(inf)), t),
-                              .(idVar, logCycle, ppf, omega0)]
+                              .(idVar, logCycle, vext, ppf, omega0)]
 
 vextVarBr_ann = vextVarBr[, .(inf = rep(inf/logCycle, each = logCycle)[1:timeLength], 
                               med = rep(med/logCycle, each = logCycle)[1:timeLength], 
                               sup = rep(sup/logCycle, each = logCycle)[1:timeLength], t = 1:timeLength), 
-                          .(idVar, logCycle, ppf, omega0)]
+                          .(idVar, logCycle, vext, ppf, omega0)]
 ```
 
 
@@ -565,36 +563,43 @@ vextVarBr_ann = vextVarBr[, .(inf = rep(inf/logCycle, each = logCycle)[1:timeLen
 volumeVarBr_ann$omega0 = factor(volumeVarBr_ann$omega0)
 levels(volumeVarBr_ann$omega0) = paste0("omega0 = ",as.numeric(levels(volumeVarBr_ann$omega0))*100,"%")
 
-volumeVarBr_ann$logCycle = factor(volumeVarBr_ann$logCycle)
-levels(volumeVarBr_ann$logCycle) = paste("Cycle:", levels(volumeVarBr_ann$logCycle), "yrs")
+volumeVarBr_ann$logrules <- paste("Cycle:", volumeVarBr_ann$logCycle, "yrs; Intensity:", volumeVarBr_ann$vext, "m3/ha")
 
 volumeVarBr_ann$ppf = factor(volumeVarBr_ann$ppf)
-levels(volumeVarBr_ann$ppf) = c("Currently available","All unprotected")
+levels(volumeVarBr_ann$ppf) = c("Current concessions","All Flonas")
 
-ggplot(volumeVarBr_ann, aes(x=t, y = med/1e6, ymin = inf/1e6, ymax = sup/1e6, colour = paste(vext, logCycle), fill = logCycle)) + geom_line() +
-  facet_grid( ppf ~ omega0, scales = "free")  + geom_ribbon(alpha = 0.2, colour = NA) + 
-  labs(x = "Time (yrs)", y = "Timber volume stocks (Mm3)") + theme(legend.position = "top")
+ggplot(volumeVarBr_ann, aes(x=t, y = med/1e6)) + 
+  geom_line(aes(colour = logrules)) +
+  geom_ribbon(alpha = 0.2, colour = NA, 
+              aes(fill = logrules, 
+                  ymin = inf/1e6, 
+                  ymax = sup/1e6)) + 
+  facet_grid(ppf ~ omega0, scales = "free")  + 
+  labs(x = "Time (yrs)", y = "Timber volume stocks (Mm3)") + 
+  theme_bw() + 
+  theme(legend.position = "top")
 ```
 
 
-```{r timber-production-br, fig.height=4, fig.width = 10}
+```{r timber-production-br, fig.height=6, fig.width = 10}
 vextVarBr_ann$omega0 = factor(vextVarBr_ann$omega0)
 levels(vextVarBr_ann$omega0) = paste0("omega0 = ", as.numeric(levels(vextVarBr_ann$omega0))*100,"%")
 
-vextVarBr_ann$logCycle = factor(vextVarBr_ann$logCycle)
-levels(vextVarBr_ann$logCycle) = paste("Cycle:", levels(vextVarBr_ann$logCycle), "yrs")
+vextVarBr_ann$logrules <- paste("Cycle:", vextVarBr_ann$logCycle, "yrs; Intensity:", vextVarBr_ann$vext, "m3/ha")
 
 vextVarBr_ann$ppf = factor(vextVarBr_ann$ppf)
 levels(vextVarBr_ann$ppf) = c("Currently available","All unprotected")
 
-ggplot(vextVarBr_ann, 
-       aes(x=t, y = med/1e6, ymin = inf/1e6, ymax = sup/1e6, 
-           colour = logCycle, fill = logCycle)) + 
-  geom_line() +
-  facet_grid(ppf ~ omega0) + 
-  geom_ribbon(alpha = 0.2, colour = NA) + 
-  labs(x = "Time (yrs)", y = "Timber production (Mm3/yr)") + 
-  theme(legend.position = "top")
+ggplot(vextVarBr_ann, aes(x=t, y = med/1e6)) + 
+  geom_line(aes(colour = logrules)) +
+  geom_ribbon(alpha = 0.2, colour = NA, 
+              aes(fill = logrules, 
+                  ymin = inf/1e6, 
+                  ymax = sup/1e6)) + 
+  facet_grid(ppf ~ omega0, scales = "free")  + 
+  labs(x = "Time (yrs)", y = "Timber production (Mm3/yr)") +
+  theme_bw() + 
+  theme(legend.position = "top") 
 ```
 
 
