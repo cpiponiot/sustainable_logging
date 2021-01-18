@@ -1,10 +1,11 @@
 ## test discretization volume
 library(data.table)
 library(ggplot2)
+file.sources = list.files(path = "R/", pattern="*.R", full.names = TRUE)
+sapply(file.sources, source, .GlobalEnv)
 
 ## parameters
 tmax = 100
-
 ag = 5
 bg = 0.01
 am = 4
@@ -14,16 +15,15 @@ intpR = 5
 slopepR = -1.5
 om0 = 0.8
 
-
 # test different silvilcultural effects
 ## increase in growth of commercial trees
 silv_effect = list(rep(1, tmax), ## no effect
-                   rep(1.1, tmax), ## 10%
-                   rep(1.2, tmax), ## 20%
-                   rep(1.5, tmax), ## 50%
-                   c(rep(1.5, 15), rep(1.5, 5) - 0.1*0:4, rep(1, 80)) ##50% with decrease after 15 years
-)
-names(silv_effect) <- c("none", "10%", "20%", "50%", "50% with decrease")
+                   1 + 0.2*(1 - 1 / (exp(-(1:tmax) + 10) + 1)), ## 20% - 10 years
+                   1 + 0.2*(1 - 1 / (exp(-(1:tmax) + 20) + 1)), ## 20% - 20 years
+                   1 + 0.8*(1 - 1 / (exp(-(1:tmax) + 10) + 1)), ## 80% - 10 years
+                   1 + 0.8*(1 - 1 / (exp(-(1:tmax) + 20) + 1))) ## 80% - 20 years
+
+names(silv_effect) <- c("none", "20% - 10 years", "20% - 20 years", "80% - 10 years", "80% - 20 years")
 
 simulations <- lapply(silv_effect, function(K) {
   # initialization
@@ -60,15 +60,15 @@ ggplot(dfsim, aes(x = t, y = value, color = treatment)) +
 
 
 ## compare with analytic results under hypothesis that omega(t) does not depend on total volume 
-
-simulations[, pR := 1 / (1 + exp(-(intpR + slopepR * log(vol))))]
-simulations[, eta := pR * (om0*(silv/100 + 1) + 1 - om0) + (1 - pR) * (omega/100*(silv/100 + 1) + 1 - omega/100)]
-simulations[, vbis := volume(t = t0_test+t-1, ag = ag*eta, am = am, bg = bg, bm = bm, th = theta*eta)]
-
-ggplot(simulations, aes(x = vol, y = vbis, color = treatment)) + 
-  geom_line() + 
-  geom_point() +
-  geom_abline(intercept = 0, slope = 1)
-
-## analytic solution doesn't work, we need to discretize the function
-## BUT when K=1 (no silviculture effect) we get the same results as the analytic version -> good sign
+# 
+# simulations[, pR := 1 / (1 + exp(-(intpR + slopepR * log(vol))))]
+# simulations[, eta := pR * (om0*(silv/100 + 1) + 1 - om0) + (1 - pR) * (omega/100*(silv/100 + 1) + 1 - omega/100)]
+# simulations[, vbis := volume(t = t0_test+t-1, ag = ag*eta, am = am, bg = bg, bm = bm, th = theta*eta)]
+# 
+# ggplot(simulations, aes(x = vol, y = vbis, color = treatment)) + 
+#   geom_line() + 
+#   geom_point() +
+#   geom_abline(intercept = 0, slope = 1)
+# 
+# ## analytic solution doesn't work, we need to discretize the function
+# ## BUT when K=1 (no silviculture effect) we get the same results as the analytic version -> good sign
