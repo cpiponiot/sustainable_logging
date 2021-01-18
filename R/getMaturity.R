@@ -8,6 +8,7 @@
 #' @param bg Growth parameter 2
 #' @param am Mortality parameter 2
 #' @param theta Respiration factor
+#' @param pdef Proportion of defective stems
 #' @param tmax Maximum value of tmax (results interval is then c(0, tmax)).
 #'   Default value is 1000.
 #'
@@ -18,7 +19,7 @@
 getMaturity <- function(vol, ag, am, bg, bm, theta, tmax = 1000) { 
   t_est <- c()
   for (i in 1:length(vol)) {
-    equ = function(x) volume(x, ag, am, bg, bm, theta) - vol[i]
+    equ = function(x) volume(x, ag, am, bg, bm, theta, pdef) - vol[i]
     t_est[i] <- uniroot(equ,c(0,tmax))$root
   }
   return(t_est) 

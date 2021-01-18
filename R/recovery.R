@@ -29,6 +29,7 @@ recovery <- function (vol1,
                       bg,
                       bm,
                       theta,
+                      pdef,
                       intR,
                       sloR,
                       omR,
@@ -38,7 +39,7 @@ recovery <- function (vol1,
   file.sources = list.files(path = "R/", pattern="*.R", full.names = TRUE)
   sapply(file.sources, source, .GlobalEnv)
   
-  t1 <- getMaturity(vol = vol1, ag, am, bg, bm, theta)
+  t1 <- getMaturity(vol = vol1, ag, am, bg, bm, theta, pdef)
   volume <- c(vol1) 
   omega <- c(om1) 
   
