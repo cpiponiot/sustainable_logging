@@ -9,8 +9,7 @@ timbRecovery = function(timeLength,
                         latitude,
                         dti = NA,
                         uncertainties = TRUE,
-                        area = NA,
-                        incr_silv = 0
+                        area = NA
 ) {
   ## without error propagation: timbRecovery
   
