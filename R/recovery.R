@@ -54,9 +54,11 @@ recovery <- function (vol1,
     omega[j+1] <- min((volume[j]*omega[j] + (ag*(1-exp(-bg*(t1+j))) - theta*volume[j]) * sf[j] * (omR*pR + omega[j]*(1-pR)) - m*omega[j] ) / volume[j+1], 1)
   }
   
+  results <- data.frame(trec = 1:logCycle, volume, omega)
+  
   if (keepAll) {
-    return(data.frame(trec = 1:logCycle, volume, omega))
+    return(results)
   } else {
-    return(c(data.table::last(volume), data.table::last(omega)))
+    return(results[c(1, logCycle),])
   }
 }
