@@ -48,8 +48,14 @@ timbRecovery = function(timeLength,
   
   load("data/paramStan_maxL.Rdata")
   ## initial maturity
-  if (any(is.na(dti)))
-    dfPred$dti = sample(pars_dti, nrow(dfPred), replace = TRUE)
+  if (any(is.na(dti))) {
+    load("data/paramStan.Rdata")
+    if (uncertainties) {
+      dfPred$dti <- sample(pars_dti, nrow(dfPred), replace = TRUE)
+    } else {
+      dfPred$dti <- mean(pars_dti)
+    }
+  } 
   dfPred[, matInit := stem_mort ^ (-lambda_ti) * (1 - dti)]
   
   ## number of cycles to reach timeLength
@@ -123,7 +129,7 @@ timbRecovery = function(timeLength,
   }
   
   ### predTime: trajectories
-  predTime <- merge(dfPred, data.table(expand.grid(
+  predTime <- merge(dfPred, data.table::data.table(expand.grid(
     iter = unique(dfPred$iter),
     site = 1:length(longitude),
     t = 0:timeLength
@@ -133,11 +139,11 @@ timbRecovery = function(timeLength,
   predTime[, tPL := t - floor((t - 1) / logCycle) * logCycle] ## time since last logging event
   
   ## cycle-specific parameters -- maturity
-  dfmatPreLog <- data.table(matPreLog)
+  dfmatPreLog <- data.table::data.table(matPreLog)
   colnames(dfmatPreLog) = as.character(0:(nCycles))
   dfmatPreLog$site = dfPred$site
   dfmatPreLog$iter = dfPred$iter
-  dfmatPreLog = melt(
+  dfmatPreLog = data.table::melt(
     dfmatPreLog,
     id.vars = c("iter", "site"),
     variable.name = "ncycle",
@@ -153,11 +159,11 @@ timbRecovery = function(timeLength,
   ## cycle-specific parameters -- omega : proportion of commercial volume
   
   ## post-logging omega value
-  dfomPostLog <- data.table(0, omPostLog)
+  dfomPostLog <- data.table::data.table(0, omPostLog)
   colnames(dfomPostLog) = as.character(0:nCycles)
   dfomPostLog$site = dfPred$site
   dfomPostLog$iter = dfPred$iter
-  dfomPostLog = melt(
+  dfomPostLog = data.table::melt(
     dfomPostLog,
     id.vars = c("iter", "site"),
     variable.name = "ncycle",
@@ -168,11 +174,11 @@ timbRecovery = function(timeLength,
   predTime <- merge(predTime, dfomPostLog, by = c("iter", "site", "ncycle"))
   
   ## pre-logging value
-  dfomPreLog <- data.table(omPreLog)
+  dfomPreLog <- data.table::data.table(omPreLog)
   colnames(dfomPreLog) <- as.character(0:(nCycles))
   dfomPreLog$site <- dfPred$site
   dfomPreLog$iter <- dfPred$iter
-  dfomPreLog <- melt(
+  dfomPreLog <- data.table::melt(
     dfomPreLog,
     id.vars = c("iter", "site"),
     variable.name = "ncycle",
@@ -200,11 +206,11 @@ timbRecovery = function(timeLength,
       volInterval = predTime[, c("t", "site", "volTimb")]
     }
     
-    dfVextReal <- data.table(vextReal)
+    dfVextReal <- data.table::data.table(vextReal)
     colnames(dfVextReal) <- as.character(1:nCycles)
     dfVextReal$site <- dfPred$site
     dfVextReal$iter <- dfPred$iter
-    dfVextReal <- melt(
+    dfVextReal <- data.table::melt(
       dfVextReal,
       id.vars = c("iter", "site"),
       variable.name = "ncycle",
@@ -220,7 +226,7 @@ timbRecovery = function(timeLength,
     }
     
   } else {
-    predTime <- merge(predTime, data.table(site = 1:length(longitude), area), by = "site")
+    predTime <- merge(predTime, data.table::data.table(site = 1:length(longitude), area), by = "site")
     
     if (uncertainties) {
       volInterval <- predTime[, .(
@@ -233,13 +239,13 @@ timbRecovery = function(timeLength,
       volInterval = predTime[, c("t", "volTimb")]
     }
     
-    dfVextReal <- data.table(vextReal)
+    dfVextReal <- data.table::data.table(vextReal)
     colnames(dfVextReal) = as.character(1:nCycles)
     dfVextReal$site = dfPred$site
     dfVextReal$iter = dfPred$iter
-    dfVextReal = merge(dfVextReal, data.table(site = 1:length(longitude), area), by = "site")
+    dfVextReal = merge(dfVextReal, data.table::data.table(site = 1:length(longitude), area), by = "site")
     
-    dfVextReal <- melt(
+    dfVextReal <- data.table::melt(
       dfVextReal,
       id.vars = c("iter", "site", "area"),
       variable.name = "ncycle",

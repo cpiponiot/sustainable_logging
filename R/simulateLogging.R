@@ -66,7 +66,11 @@ simulateLogging <- function(timeLength,
   ## initial maturity and volume
   if (any(is.na(dti))) {
     load("data/paramStan.Rdata")
-    dfPred$dti = sample(pars_dti, nrow(dfPred), replace = TRUE)
+    if (uncertainties) {
+    dfPred$dti <- sample(pars_dti, nrow(dfPred), replace = TRUE)
+    } else {
+      dfPred$dti <- mean(pars_dti)
+    }
   }
   dfPred[, matInit := stem_mort ^ (-lambda_ti) * (1 - dti)]
   dfPred[, vol0 := volume(matInit, aG_FORMIND, aM, bP, bM, theta, pdef)]
@@ -82,7 +86,7 @@ simulateLogging <- function(timeLength,
   list_results <- vector(mode = "list", length = nCycles)
   
   for (i in 1:nCycles) {
-    results <- dfPred[, logging(volPre, omPre, logIntensity, pdef, rho, e)]
+    results <- dfPred[, logging(volPre, omPre, logIntensity, rho, e)]
     results <- cbind(dfPred[, c("site","iter")], results)
     ## post logging vol and omega
     dfPred$vol1 <- results$volPost
@@ -106,8 +110,8 @@ simulateLogging <- function(timeLength,
     ## update volPre and omPre
     data.table::setDT(rectot)
     rectot[, tcycle := max(trec), .(iter, site)]
-    dfPred$volPre <- rectot[trec==tcycle, 1]
-    dfPred$volPre <- rectot[trec==tcycle, 2]
+    dfPred$volPre <- rectot[trec==tcycle, "volume"]
+    dfPred$omPre <- rectot[trec==tcycle, "omega"]
     
     results <- data.table::melt(results, id.vars = c("site", "trec"), 
                                     measure.vars = c("volume", "omega", "vextReal"))

@@ -42,5 +42,5 @@ omega_t = function(X) {
     om = c(om, om2)
   }
   
-  return(last(om))
+  return(data.table::last(om))
 }
