@@ -11,7 +11,6 @@
 #' @param latitude
 #' @param dti
 #' @param uncertainties
-#' @param area
 #' @param silv Numeric vector of length 2: the first value is the % increase of
 #'   commercial trees growth due to silvicultural treatments, and the second
 #'   value is the duration of those effects. Default is c(0,0) (no silvicultural
@@ -30,7 +29,6 @@ simulateLogging <- function(timeLength,
                             latitude,
                             dti = NA,
                             uncertainties = TRUE,
-                            area = NA,
                             silv = c(0,0), 
                             keepAll = FALSE
 ) {
@@ -49,8 +47,6 @@ simulateLogging <- function(timeLength,
     stop("omega0 should be of length 1 or have the same size as coordinates.")
   if (!(length(dti) %in% c(1, length(longitude))))
     stop("dti should be of length 1 or have the same size as coordinates.")
-  if (sum(is.na(area)) == 0 & length(area) != length(longitude))
-    stop("area should have the same size as coordinates.")
   
   ## load all functions - remove when made a package ####
   file.sources = list.files(path = "R/", pattern="*.R", full.names = TRUE)
@@ -73,7 +69,7 @@ simulateLogging <- function(timeLength,
     }
   }
   dfPred[, matInit := stem_mort ^ (-lambda_ti) * (1 - dti)]
-  dfPred[, vol0 := volume(matInit, aG_FORMIND, aM, bP, bM, theta, pdef)]
+  dfPred[, vol0 := volume(matInit, aG_FORMIND, aM, bP, bM, theta)]
   
   ## simulate n logging cycles ####
   ## number of cycles to reach timeLength
@@ -86,35 +82,45 @@ simulateLogging <- function(timeLength,
   list_results <- vector(mode = "list", length = nCycles)
   
   for (i in 1:nCycles) {
-    results <- dfPred[, logging(volPre, omPre, logIntensity, rho, e)]
-    results <- cbind(dfPred[, c("site","iter")], results)
+    results <- dfPred[, logging(volPre, omPre, logIntensity, pdef, rho, e, uncertainties)]
+    results <- cbind(dfPred[, c("site","iter", "pdef", "vol0")], results)
     ## post logging vol and omega
     dfPred$vol1 <- results$volPost
     dfPred$om1 <- results$omPost
+    ## proportion of commercial trees in recruits
+    ## between prelogging proportion of commercial trees omPreLog 
+    ## and initial proportion of commercial species omega0
+    dfPred$omR <- runif(nrow(dfPred), min = dfPred$omPre, max = dfPred$omega0)
+    
     ## recovery process
-    rectot = c()
+    rectot <- c()
     for (k in 1:nrow(dfPred)) {
-      rec <- recovery(vol1 = dfPred$vol1[k], om1 =dfPred$om1[k], 
+      rec <- recovery(vol1 = dfPred$vol1[k], om1 = dfPred$om1[k], 
                       logCycle = dfPred$logCycle[k], silv = silv, 
                       ag = dfPred$aG_FORMIND[k], bg = dfPred$bP[k], 
                       am = dfPred$aM[k], bm = dfPred$bM[k],
-                      theta = dfPred$theta[k], omR = dfPred$omPre[k], 
-                      intR = dfPred$intercept[k], sloR = dfPred$slope[k], 
+                      theta = dfPred$theta[k], omR = dfPred$omR[k], 
+                      intR = dfPred$intercept[k], sloR = dfPred$slope[k],
                       keepAll = keepAll)
       rec$site <- dfPred$site[k]
       rec$iter <- dfPred$iter[k]
+      rec$volume[rec$volume > dfPred$vol0[k]] <- dfPred$vol0[k]
       rectot <- rbind(rectot, rec)
     } 
     results <- merge(results, rectot, by = c("site", "iter"))
-    
     ## update volPre and omPre
     data.table::setDT(rectot)
     rectot[, tcycle := max(trec), .(iter, site)]
     dfPred$volPre <- rectot[trec==tcycle, "volume"]
     dfPred$omPre <- rectot[trec==tcycle, "omega"]
     
+    ## prepare output ##
+    # 1. multiply volume by pdef
+    results$volume <- results$volume*(1-results$pdef)
+    # 2. melt results dataframe
     results <- data.table::melt(results, id.vars = c("site", "trec"), 
                                     measure.vars = c("volume", "omega", "vextReal"))
+    # 2b. calculate summary statistics
     if (uncertainties) {
         results <- results[, .(lwr = quantile(value, 0.025), 
                                med = quantile(value, 0.5), 
@@ -122,11 +128,9 @@ simulateLogging <- function(timeLength,
                            .(site, trec, variable)]
     } 
     results <- subset(results, !(variable == "vextReal" & trec > 1))
-    ## TODO check that pdef is correctly accounted for
-    
+    ## TODO check that prelogging proportion of commercial trees < proportion of commercial species in recruited trees < initial proportion of commercial species
     list_results[[i]] <- results
   }
-  
   simu_cycles <- data.table::rbindlist(list_results, idcol = "ncycle")
   return(simu_cycles)
 }
