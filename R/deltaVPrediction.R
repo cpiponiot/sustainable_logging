@@ -1,4 +1,4 @@
-deltaVPrediction <- function(V0, Vext, om0, psi, e){
+deltaVPrediction <- function(V0, Vext, om0, psi, e, uncertainties){
   
   # get ome (proportion of commercial volume in volume loss due to logging operations)
   

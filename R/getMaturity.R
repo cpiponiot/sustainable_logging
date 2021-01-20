@@ -16,7 +16,7 @@
 #'
 #' @export
 #' 
-getMaturity <- function(vol, ag, am, bg, bm, theta, tmax = 1000) { 
+getMaturity <- function(vol, ag, am, bg, bm, theta, pdef = 0, tmax = 1000) { 
   t_est <- c()
   for (i in 1:length(vol)) {
     equ = function(x) volume(x, ag, am, bg, bm, theta, pdef) - vol[i]
