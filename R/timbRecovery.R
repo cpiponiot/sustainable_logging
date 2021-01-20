@@ -85,7 +85,8 @@ timbRecovery = function(timeLength,
       theta = dfPred$theta,
       pdef = dfPred$pdef,
       psi = dfPred$rho,
-      e = dfPred$e
+      e = dfPred$e, 
+      uncertainties
     )
     vextReal <- cbind(vextReal, newParams[[3]])
     

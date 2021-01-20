@@ -29,7 +29,6 @@ recovery <- function (vol1,
                       bg,
                       bm,
                       theta,
-                      pdef,
                       intR,
                       sloR,
                       omR,
@@ -39,7 +38,7 @@ recovery <- function (vol1,
   file.sources = list.files(path = "R/", pattern="*.R", full.names = TRUE)
   sapply(file.sources, source, .GlobalEnv)
   
-  t1 <- getMaturity(vol = vol1, ag, am, bg, bm, theta, pdef)
+  t1 <- getMaturity(vol = vol1, ag, am, bg, bm, theta)
   volume <- c(vol1) 
   omega <- c(om1) 
   
@@ -51,7 +50,7 @@ recovery <- function (vol1,
     eta <- pR * (omR*sf[j] + 1 - omR) + (1 - pR) * (omega[j]*sf[j] + 1 - omega[j]) 
     g <- (ag*(1-exp(-bg*(t1+j))) - theta*volume[j])*eta
     m <- am*(1-exp(-bm*(t1+j)))
-    volume[j+1] <- volume[j] + g - m
+    volume[j+1] <- volume[j] + (g - m)
     omega[j+1] <- min((volume[j]*omega[j] + (ag*(1-exp(-bg*(t1+j))) - theta*volume[j]) * sf[j] * (omR*pR + omega[j]*(1-pR)) - m*omega[j] ) / volume[j+1], 1)
   }
   

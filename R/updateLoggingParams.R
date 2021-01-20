@@ -9,7 +9,8 @@ updateLoggingParams <- function(mat0,
                                 theta,
                                 pdef,
                                 psi,
-                                e) 
+                                e, 
+                                uncertainties) 
 {
   source("R/volume.R")
   source("R/deltaVPrediction.R")
@@ -27,8 +28,9 @@ updateLoggingParams <- function(mat0,
       V0 = volume0 ,
       Vext = vextReal,
       om0 = omega0,
-      rho = psi,
-      e = e
+      psi = psi,
+      e = e, 
+      uncertainties = uncertainties
     )
   
   ## post logging proportion of commercial species
