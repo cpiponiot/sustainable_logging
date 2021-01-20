@@ -1,0 +1,296 @@
+---
+title: "Sustainability of Brazilian forest concessions"
+output: 
+  pdf_document:
+    keep_md: true
+    number_sections: true
+bibliography: myBiblio.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, 
+                      root.dir = rprojroot::find_rstudio_root_file())
+# load libraries
+packages_needed <- c("knitr", "kableExtra", "data.table", "ggplot2", "parallel", "sp", "truncnorm")
+packages_to_install <- packages_needed[!( packages_needed %in% rownames(installed.packages()))]
+if (length(packages_to_install) > 0)
+  install.packages(packages_to_install)
+lapply(packages_needed, require, character.only = TRUE)
+
+if (!dir.exists("cache"))
+  dir.create("cache")
+```
+
+# Introduction
+
+- history and purpose of Brazilian forest concessions
+
+# Methods
+
+## Study areas - Brazilian concessions
+
+- current forest concessions (from Lucas: ask for source)
+
+- maximum area available for concessions: all national forests (Flonas) in the Brazilian Amazon. Shapefiles downloaded from  (www.florestal.gov.br)[http://www.florestal.gov.br/component/content/article/127-informacoes-florestais/cadastro-nacional-de-florestas-publicas-cnfp/1894-cadastro-nacional-de-florestas-publicas-atualizacao-2019?Itemid=]
+
+<!-- ```{r map-concessions} -->
+<!-- flonas <- rgdal::readOGR(dsn = "shapefiles/final", layer = "BRflonas") -->
+<!-- concessions <- rgdal::readOGR(dsn = "shapefiles/final", layer = "BRconcessions") -->
+<!-- plot(flonas) -->
+<!-- plot(concessions, add = TRUE, col=2) -->
+<!-- ``` -->
+
+```{r map-brazil-concess}
+if (! file.exists("data/pconcessions.Rdata")) {
+  ## download: http://www.florestal.gov.br/component/content/article/127-informacoes-florestais/cadastro-nacional-de-florestas-publicas-cnfp/1894-cadastro-nacional-de-florestas-publicas-atualizacao-2019?Itemid=
+  ## concessions
+  concessions <- rgdal::readOGR(dsn = "shapefiles/final", layer = "BRconcessions")
+  ext2 <- floor(raster::extent(concessions)) + c(0, 1, 0, 1)
+  rst <- raster::raster(resolution = 0.01, ext = ext2)
+  raster_concessions <- raster::rasterize(concessions, rst)
+  raster_concessions2 <- !is.na(raster_concessions)
+  pconcessions <- raster::aggregate(raster_concessions2, fact = 100)
+  pconcessions <- raster::as.data.frame(pconcessions, xy = TRUE)
+  colnames(pconcessions) <- c("long", "lat", "pConcess")
+  ## flonas
+  flonas <- rgdal::readOGR(dsn = "shapefiles/final", layer = "BRflonas")
+  ext2 <- floor(raster::extent(flonas)) + c(0, 1, 0, 1)
+  rst <- raster::raster(resolution = 0.01, ext = ext2)
+  raster_flonas <- raster::rasterize(flonas, rst)
+  raster_flonas2 <- !is.na(raster_flonas)
+  pflonas <- raster::aggregate(raster_flonas2, fact = 100)
+  pflonas <- raster::as.data.frame(pflonas, xy = TRUE)
+  colnames(pflonas) <- c("long", "lat", "pFlona")
+  
+  pconcessions <- merge(pconcessions, pflonas, by = c("long", "lat"), all = TRUE)
+  pconcessions[is.na(pconcessions$pConcess), "pConcess"] <- 0
+  pconcessions <- subset(pconcessions, pConcess > 0 | pFlona > 0)
+  save(pconcessions, file = "data/pconcessions.Rdata")
+} else load("data/pconcessions.Rdata")
+
+load("data/areaLogging.Rdata")
+areaLoggingBR <- areaLogging[, c("long", "lat", "areaTot")]
+areaLoggingBR <- merge(areaLoggingBR, pconcessions, by = c("long", "lat"), all = TRUE)
+areaLoggingBR$pConcess[is.na(areaLoggingBR$pConcess)] <- 0
+areaLoggingBR$pFlona[is.na(areaLoggingBR$pFlona)] <- 0
+```
+
+## The VDDE model 
+
+### Maturity and disturbance
+
+The timber recovery model used in this study is described in a previous publication [@Piponiot2018]. In this model, the total volume of trees $\geq$ 50 cm DBH is modeled as a function of a new variable, the forest maturity, that is itself estimated using volume dynamics data (volume changes from growth and mortality). 
+
+```{r illus-vol-recov, fig.height = 5, fig.width=7}
+
+source("R/volume.R")
+
+tobs = seq(150,180,2)
+vobs = rnorm(length(tobs), volume(tobs, ag = 5, am = 1, bg = 0.008, bm = 0.004, th = 0.035), 1)
+
+curve(volume(x, ag = 5, am = 1, bg = 0.008, bm = 0.004, th = 0.035), 
+      xlim = c(0,300), ylab = expression("Volume ("*m^3*ha^{-1}*")"), xlab = "Estimated maturity", lty = 2)
+points(tobs, vobs, pch = 16)
+legend("topleft", legend = c("Observations", "Predictions"), bty = "n", 
+       lty = c(0, 2), lwd = c(0, 1), pch = c(16, NA))
+
+```
+
+The maturity increases (1 unit per year) when there is no disturbance and decreases abruptly when there is a disturbance, for example selective logging. 
+
+```{r illus-disturb, fig.height = 5, fig.width=7}
+
+library(diagram)
+
+curve(volume(x, ag = 5, am = 1, bg = 0.008, bm = 0.004, th = 0.035), 
+      xlim = c(0,300), ylab = expression("Volume ("*m^3*ha^{-1}*")"), xlab = "Estimated maturity")
+curvedarrow(c(180, volume(180, ag = 5, am = 1, bg = 0.008, bm = 0.004, th = 0.035)), 
+            c(100, volume(100, ag = 5, am = 1, bg = 0.008, bm = 0.004, th = 0.035)), 
+            lwd = 2, lty = 1, lcol = "red", 
+            arr.pos = 0.95, curve = 0.3, dr = 0.01, segment = c(0, 1))
+text(x=140, y = 100, labels = "Disturbance", pos = 2, col=2)
+curvedarrow(c(105, volume(100, ag = 5, am = 1, bg = 0.008, bm = 0.004, th = 0.035) - 4), 
+            c(150, volume(150, ag = 5, am = 1, bg = 0.008, bm = 0.004, th = 0.035) - 5),
+            lty = 2, curve = -0.01, arr.pos = 0.95)
+text(x=145, y = 50, labels = "Recovery", pos = 3)
+
+```
+
+### Proportion of commercial volume
+
+Only part of the total volume is commercial: the pre-logging proportion of commercial volume is $\omega_0$. Because logging targets commercial species, their proportion in the total volume $\omega$ decreases after logging (see the methodology paper for a complete decription of the model [@Piponiot2018]), but can increase again through recruitment of small trees (< 50 cm DBH). 
+
+### Introducing a new module: silvicultural treatments 
+
+According to the literature, the effect of silvicultural treatments such as liana removal (and in some cases tree) xxx
+
+```{r illustr-silviculture, fig.width = 8, fig.height=5}
+## parameters
+tmax = 100
+ag = 5
+bg = 0.01
+am = 4
+bm = 0.005
+theta = 0.002
+intpR = 5
+slopepR = -1.5
+om0 = 0.8
+
+# test different silvilcultural effects
+## increase in growth of commercial trees
+silv_effect = list(rep(1, tmax), ## no effect
+                   1 + 0.2*(1 - 1 / (exp(-(1:tmax) + 10) + 1)), ## 20% - 10 years
+                   1 + 0.2*(1 - 1 / (exp(-(1:tmax) + 20) + 1)), ## 20% - 20 years
+                   1 + 0.8*(1 - 1 / (exp(-(1:tmax) + 10) + 1)), ## 80% - 10 years
+                   1 + 0.8*(1 - 1 / (exp(-(1:tmax) + 20) + 1))) ## 80% - 20 years
+
+names(silv_effect) <- c("none", "20% - 10 years", "20% - 20 years", "80% - 10 years", "80% - 20 years")
+
+simulations <- lapply(silv_effect, function(K) {
+  # initialization
+  V = c(100) 
+  om = c(0.2) 
+  vtest = volume(t = 1:500, ag = ag, am = am, bg = bg, bm = bm, th = theta)
+  t0_test = which.min(abs(vtest-100))
+  for (t in 1:(tmax-1)) {
+    pR = 1 / (1 + exp(-(intpR + slopepR * log(V[t]))))
+    eta = pR * (om0*K[t] + 1 - om0) + (1 - pR) * (om[t]*K[t] + 1 - om[t]) 
+    g = (ag*(1-exp(-bg*(t0_test+t))) - theta*V[t])*eta
+    m = am*(1-exp(-bm*(t0_test+t)))
+    V[t+1] = V[t] + g - m
+    om[t+1] = min((V[t]*om[t] + (ag*(1-exp(-bg*(t0_test+t))) - theta*V[t]) * K[t] * (om0*pR + om[t]*(1-pR)) - m*om[t] ) / V[t+1], 1)
+  }
+  return(data.frame(t = 1:tmax, silv = (K-1)*100, vol = V, omega = om*100))
+})
+
+simulations <- rbindlist(simulations, idcol = "treatment")
+simulations[, vcom := vol*omega/100]
+dfsim <- melt(simulations, measure.vars = c("silv", "vol", "omega", "vcom"))
+levels(dfsim$variable) <- c("Effect of silvicultural treatments\non commercial volume growth (%)", 
+                            "Total volume (m3/ha)", "Proportion of commercial volume (%)", "Commercial volume (m3/ha)")
+
+## graph
+library(ggplot2)
+ggplot(dfsim, aes(x = t, y = value, color = treatment)) + 
+  geom_line() +
+  facet_wrap(~ variable, scales = "free") +
+  theme_bw() + 
+  expand_limits(x = 0, y = 0) + 
+  scale_x_continuous(expand = c(0, 0)) +
+  labs(x = "Recovery time (yr)", y = "")
+```
+
+### Model calibration at the Amazonian scale 
+
+This model was calibrated with data from TmFO plots to make spatially-explicit predictions of post-logging timber recovery in Amazonia (paper submitted to Environmental Research Letters). 
+
+![Timber recovery predictions (% of pre-logging timber stocks) from the model calibrated with TmFO data, as a function of logging cycle length (columns) and logging intensity (rows).](graphs/recovery_amazonia.PNG)
+
+
+## Simulations
+
+We simulate all combinations of the following parameters: 
+
+- initial proportion of commercial timber: 20%, 50% or 90%;
+
+- logging intensity: 10, 20 or 30 m$^3$.ha$^{-1}$;
+
+- length of cutting cycles: 20, 35 or 60 years;
+
+- logged areas: current concessions or all Amazonian Flonas;
+
+- effect of silvicultural treatments: no effect, 20% or 50% increase of commercial timber growth during 20 years. 
+
+The total number of simulations is 3x3x3x3x2 = 162. 
+
+Simulation over the first 200 years after the first logging event
+
+```{r simulations}
+timeLength <- 200
+omega0 <- c(0.2, 0.5, 0.9)
+logIntensity <- (1:3)*10
+logCycle <- c(20, 35, 60)
+logArea <- c("current", "potential")
+silvTreat <- c(0, 0.2, 0.5)
+simulations <- expand.grid(omega0 = omega0, 
+                           logIntensity = logIntensity, 
+                           logCycle = logCycle, 
+                           silvTreat = silvTreat)
+simulations$simid <- 1:nrow(simulations)
+```
+
+In the results, we only show simulations that have a constant production of timber during the 200 years of the simulation (with a 10% tolerance).
+
+```{r total-timber-brconcess}
+if (!file.exists("cache/simulations_concessionsBR.Rdata")) {
+  
+  source("R/simulateLogging.R")
+  
+  # Calculate the number of cores
+  no_cores <- detectCores() - 2
+  
+  # Initiate cluster
+  cl <- makeCluster(no_cores)
+  clusterEvalQ(cl, library(data.table))
+  clusterExport(cl, varlist = c("simulateLogging", "simulations", "timeLength", "areaLoggingBR", "rtruncnorm"))
+  
+  recovChangOmega <- parSapply(cl, 1:nrow(simulations), function(i) {
+  # recovChangOmega <- parSapply(cl, 1:3, function(i) {
+    recov <- simulateLogging(
+      timeLength = timeLength,
+      logIntensity = simulations$logIntensity[i],
+      logCycle = simulations$logCycle[i], 
+      omega0 = simulations$omega0[i],
+      longitude = subset(areaLoggingBR, pFlona > 0)$long, 
+      latitude = subset(areaLoggingBR, pFlona > 0)$lat,
+      silv = c(simulations$silvTreat[i], 20),
+      uncertainties = TRUE, keepAll = FALSE
+    )
+    return(recov)
+  })
+  
+  stopCluster(cl)
+  
+  save(recovChangOmega, file = "cache/simulations_concessionsBR.Rdata")
+} else { load("cache/simulations_concessionsBR.Rdata") }  
+
+## add simulation info
+results <- rbindlist(results, idcol = "simid")
+results <- merge(recovChangOmega, simulations, by = "site")
+
+## multiply by total area 
+results <- merge(results, areaLoggingBR, by = c("long", "lat"))
+
+# ## get volume production with vextReal xxx
+# 
+# volumeVarBr <- do.call(rbind, lapply(1:nrow(dfVariables), function(i) data.table(recovChangOmega[[1,i]], idVar = i)))
+# dfVariables$idVar <- 1:nrow(dfVariables)
+# volumeVarBr <- merge(volumeVarBr, dfVariables, by = "idVar")
+# 
+# vextVarBr <- do.call(rbind, lapply(1:nrow(dfVariables), function(i) data.table(recovChangOmega[[2,i]], idVar = i)))
+# dfVariables$idVar <- 1:nrow(dfVariables)
+# vextVarBr <- merge(vextVarBr, dfVariables, by = "idVar")
+# 
+# ## annualise harvests
+# 
+# annualise = function(X, period, X0) {
+#   mat = matrix(X0 / period, ncol = length(X), nrow = period)
+#   for (i in 1:period) {
+#     mat[i, i:length(X)] = X[1:(length(X)-i+1)]/period
+#   }
+#   return(colSums(mat))
+# }
+# 
+# volumeVarBr_ann = volumeVarBr[order(t) , .(inf = annualise(inf, logCycle, first(inf)),
+#                                            med = annualise(med, logCycle, first(inf)),
+#                                            sup = annualise(sup, logCycle, first(inf)), t),
+#                               .(idVar, logCycle, vext, ppf, omega0)]
+# 
+# vextVarBr_ann = vextVarBr[, .(inf = rep(inf/logCycle, each = logCycle)[1:timeLength], 
+#                               med = rep(med/logCycle, each = logCycle)[1:timeLength], 
+#                               sup = rep(sup/logCycle, each = logCycle)[1:timeLength], t = 1:timeLength), 
+#                           .(idVar, logCycle, vext, ppf, omega0)]
+```
+
+
+# Results
