@@ -205,7 +205,7 @@ The total number of simulations is 3x3x3x3x2 = 162.
 
 Simulation over the first 200 years after the first logging event
 
-```{r simulations}
+```{r define-simulations}
 timeLength <- 200
 omega0 <- c(0.2, 0.5, 0.9)
 logIntensity <- (1:3)*10
@@ -221,10 +221,14 @@ simulations$simid <- 1:nrow(simulations)
 
 In the results, we only show simulations that have a constant production of timber during the 200 years of the simulation (with a 10% tolerance).
 
-```{r total-timber-brconcess}
+```{r run-simulations}
 if (!file.exists("cache/simulations_concessionsBR.Rdata")) {
   
   source("R/simulateLogging.R")
+  
+  ## all pixels with flonas (could have loggi)
+  locations <- subset(areaLoggingBR, pFlona > 0)
+  locations$site <- 1:nrow(locations)
   
   # Calculate the number of cores
   no_cores <- detectCores() - 2
@@ -232,17 +236,16 @@ if (!file.exists("cache/simulations_concessionsBR.Rdata")) {
   # Initiate cluster
   cl <- makeCluster(no_cores)
   clusterEvalQ(cl, library(data.table))
-  clusterExport(cl, varlist = c("simulateLogging", "simulations", "timeLength", "areaLoggingBR", "rtruncnorm"))
+  clusterExport(cl, varlist = c("simulateLogging", "simulations", "timeLength", "locations", "rtruncnorm"))
   
-  recovChangOmega <- parSapply(cl, 1:nrow(simulations), function(i) {
-  # recovChangOmega <- parSapply(cl, 1:3, function(i) {
+  recovChangOmega <- parLapply(cl, 1:nrow(simulations), function(i) {
     recov <- simulateLogging(
       timeLength = timeLength,
       logIntensity = simulations$logIntensity[i],
       logCycle = simulations$logCycle[i], 
       omega0 = simulations$omega0[i],
-      longitude = subset(areaLoggingBR, pFlona > 0)$long, 
-      latitude = subset(areaLoggingBR, pFlona > 0)$lat,
+      longitude = locations$long, 
+      latitude = locations$lat,
       silv = c(simulations$silvTreat[i], 20),
       uncertainties = TRUE, keepAll = FALSE
     )
@@ -253,44 +256,107 @@ if (!file.exists("cache/simulations_concessionsBR.Rdata")) {
   
   save(recovChangOmega, file = "cache/simulations_concessionsBR.Rdata")
 } else { load("cache/simulations_concessionsBR.Rdata") }  
+```
 
-## add simulation info
-results <- rbindlist(results, idcol = "simid")
-results <- merge(recovChangOmega, simulations, by = "site")
+```{r prepare-results}
+results <- rbindlist(recovChangOmega, idcol = "simid")
 
-## multiply by total area 
-results <- merge(results, areaLoggingBR, by = c("long", "lat"))
+## multiply by total area ####
+results <- merge(results, locations, by = "site")
+results <- melt(results, measure.vars = c("pConcess", "pFlona"), 
+                variable.name = "ppf", value.name = "pArea", value.factor = TRUE)
+levels(results$ppf) <- c("current", "potential")
+results <- subset(results, pArea > 0)
+results[, c("lwr", "med", "upr")] <- results[, c("lwr", "med", "upr")]*results$pArea*results$areaTot
+results <- results[, .(lwr = sum(lwr), med = sum(med), upr = sum(upr)), 
+                   .(simid, ncycle, trec, variable, ppf)]
 
-# ## get volume production with vextReal xxx
-# 
-# volumeVarBr <- do.call(rbind, lapply(1:nrow(dfVariables), function(i) data.table(recovChangOmega[[1,i]], idVar = i)))
-# dfVariables$idVar <- 1:nrow(dfVariables)
-# volumeVarBr <- merge(volumeVarBr, dfVariables, by = "idVar")
-# 
-# vextVarBr <- do.call(rbind, lapply(1:nrow(dfVariables), function(i) data.table(recovChangOmega[[2,i]], idVar = i)))
-# dfVariables$idVar <- 1:nrow(dfVariables)
-# vextVarBr <- merge(vextVarBr, dfVariables, by = "idVar")
-# 
-# ## annualise harvests
-# 
-# annualise = function(X, period, X0) {
-#   mat = matrix(X0 / period, ncol = length(X), nrow = period)
-#   for (i in 1:period) {
-#     mat[i, i:length(X)] = X[1:(length(X)-i+1)]/period
-#   }
-#   return(colSums(mat))
-# }
-# 
-# volumeVarBr_ann = volumeVarBr[order(t) , .(inf = annualise(inf, logCycle, first(inf)),
-#                                            med = annualise(med, logCycle, first(inf)),
-#                                            sup = annualise(sup, logCycle, first(inf)), t),
-#                               .(idVar, logCycle, vext, ppf, omega0)]
-# 
-# vextVarBr_ann = vextVarBr[, .(inf = rep(inf/logCycle, each = logCycle)[1:timeLength], 
-#                               med = rep(med/logCycle, each = logCycle)[1:timeLength], 
-#                               sup = rep(sup/logCycle, each = logCycle)[1:timeLength], t = 1:timeLength), 
-#                           .(idVar, logCycle, vext, ppf, omega0)]
+## get timber production
+dfvext <- subset(results, variable == "vextReal")
+# add simulation info
+dfvext <- merge(dfvext, simulations, by = "simid")
+
+## get timber stocks
+dfvolume <- subset(results, variable != "vextReal")
+dfvolume <- dcast(dfvolume, ncycle + trec + simid + ppf ~ variable, value.var = c("lwr", "med","upr"))
+dfvolume$lwr <- dfvolume$lwr_omega*dfvolume$lwr_volume
+dfvolume$med <- dfvolume$med_omega*dfvolume$med_volume
+dfvolume$upr <- dfvolume$upr_omega*dfvolume$upr_volume
+dfvolume <- merge(dfvolume, simulations, by = "simid")
+
+# add all recovery years ###
+dfvolume <- dfvolume[, .(
+  lwr = seq(min(lwr), max(lwr), length.out=logCycle[1]), 
+  med = seq(min(med), max(med), length.out=logCycle[1]), 
+  upr = seq(min(upr), max(upr), length.out=logCycle[1]), 
+  trec = seq(1, logCycle[1])), 
+  .(ncycle, simid, ppf, omega0, logIntensity, logCycle, silvTreat)]
+dfvolume[, t := (ncycle-1)*logCycle + trec]
+```
+
+```{r annualise-harvests}
+annualise <- function(X, period, X0) {
+  mat = matrix(X0 / period, ncol = length(X), nrow = period)
+  for (i in 1:period) {
+    mat[i, i:length(X)] = X[1:(length(X)-i+1)]/period
+  }
+  return(colSums(mat))
+}
+
+dfvolume_ann = dfvolume[order(t) , .(lwr = annualise(lwr, logCycle, first(lwr)),
+                                     med = annualise(med, logCycle, first(lwr)),
+                                     upr = annualise(upr, logCycle, first(lwr)), t),
+                        .(simid, ncycle, omega0, logIntensity, logCycle, silvTreat, ppf)]
+
+dfvext_ann <- dfvext[, .(lwr = rep(lwr/logCycle, each = logCycle[1]),
+                         med = rep(med/logCycle, each = logCycle[1]),
+                         upr = rep(upr/logCycle, each = logCycle[1]),
+                         t = (ncycle-1)*logCycle[1] + 1:logCycle[1]),
+                     .(simid, ncycle, omega0, logIntensity, logCycle, silvTreat, ppf)]
+dfvext_ann <- subset(dfvext_ann, t <= timeLength)
 ```
 
 
 # Results
+
+```{r timber-production-br, fig.height=6, fig.width = 10}
+dfvext_ann$omega0 = factor(dfvext_ann$omega0)
+levels(dfvext_ann$omega0) = paste0("omega0 = ", as.numeric(levels(dfvext_ann$omega0))*100,"%")
+
+dfvext_ann$logrules <- paste("Cycle:", dfvext_ann$logCycle, "yrs; Intensity:", dfvext_ann$logIntensity, "m3/ha")
+
+dfvext_ann$ppf = factor(dfvext_ann$ppf)
+levels(dfvext_ann$ppf) = c("Currently available","All unprotected")
+
+ggplot(dfvext_ann, aes(x=t, y = med/1e3)) + 
+  geom_line(aes(colour = logrules)) +
+  geom_ribbon(alpha = 0.2, colour = NA, 
+              aes(fill = logrules, 
+                  ymin = lwr/1e3, 
+                  ymax = upr/1e3)) + 
+  facet_grid(ppf ~ omega0, scales = "free")  + 
+  labs(x = "Time (yrs)", y = "Timber production (km3/yr)") +
+  theme_bw() + 
+  theme(legend.position = "top") 
+```
+
+```{r timber-stocks-br, fig.height=6, fig.width = 10}
+dfvolume_ann$omega0 = factor(dfvolume_ann$omega0)
+levels(dfvolume_ann$omega0) = paste0("omega0 = ", as.numeric(levels(dfvolume_ann$omega0))*100,"%")
+
+dfvolume_ann$logrules <- paste("Cycle:", dfvolume_ann$logCycle, "yrs; Intensity:", dfvolume_ann$vext, "m3/ha")
+
+dfvolume_ann$ppf = factor(dfvolume_ann$ppf)
+levels(dfvolume_ann$ppf) = c("Currently available","All unprotected")
+
+ggplot(dfvolume_ann, aes(x=t, y = med/1e6)) + 
+  geom_line(aes(colour = logrules)) +
+  geom_ribbon(alpha = 0.2, colour = NA, 
+              aes(fill = logrules, 
+                  ymin = lwr/1e6, 
+                  ymax = upr/1e6)) + 
+  facet_grid(ppf ~ omega0, scales = "free")  + 
+  labs(x = "Time (yrs)", y = "Timber production (Mm3/yr)") +
+  theme_bw() + 
+  theme(legend.position = "top") 
+```
