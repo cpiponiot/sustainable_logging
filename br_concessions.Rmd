@@ -238,7 +238,11 @@ if (!file.exists("cache/simulations_concessionsBR.Rdata")) {
   clusterEvalQ(cl, library(data.table))
   clusterExport(cl, varlist = c("simulateLogging", "simulations", "timeLength", "locations", "rtruncnorm"))
   
-  recovChangOmega <- parLapply(cl, 1:nrow(simulations), function(i) {
+  if (!dir.exists("cache/simulations_concessionsBR/"))
+    dir.create("cache/simulations_concessionsBR/")  
+  
+  # recovCycles <- parLapply(cl, 1:nrow(simulations), function(i) {
+  recovCycles <- parLapply(cl, 9:20, function(i) {
     recov <- simulateLogging(
       timeLength = timeLength,
       logIntensity = simulations$logIntensity[i],
@@ -249,12 +253,11 @@ if (!file.exists("cache/simulations_concessionsBR.Rdata")) {
       silv = c(simulations$silvTreat[i], 20),
       uncertainties = TRUE, keepAll = FALSE
     )
+    save(recov, file = paste0("cache/simulations_concessionsBR/recov", i, ".Rdata"))
     return(recov)
   })
-  
   stopCluster(cl)
   
-  save(recovChangOmega, file = "cache/simulations_concessionsBR.Rdata")
 } else { load("cache/simulations_concessionsBR.Rdata") }  
 ```
 
