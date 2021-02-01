@@ -356,23 +356,32 @@ Sustainability was defined in two ways (we use the median value of all runs):
 ```{r sustainable-combinations}
 fin_prod <- lapply(outputs, function(df) { 
   df <- subset(df, variable == "vextReal")
-  ini <- colSums(df[ncycle==1, c("lwr", "med", "upr")])
-  fin <- colMeans(df[ncycle==max(ncycle), c("lwr", "med", "upr")])
-  res <- data.table(t(fin/ini))
-  colnames(res) <- c("lwr", "med", "upr")
+  df <- merge(df, locations, by = "site")
+  df[, `:=`(medF = med*areaTot*pFlona, 
+            lwrF = lwr*areaTot*pFlona, 
+            uprF = upr*areaTot*pFlona, 
+            medC = med*areaTot*pConcess, 
+            lwrC = lwr*areaTot*pConcess, 
+            uprC = upr*areaTot*pConcess)]
+  ini <- colSums(df[ncycle==1, c("lwrF", "medF", "uprF", "lwrC", "medC", "uprC")])
+  fin <- colSums(df[ncycle==max(ncycle), c("lwrF", "medF", "uprF", "lwrC", "medC", "uprC")])
+  res <- data.table(rbind(ini, fin, fin/ini))
+  res$variable <- c("ini", "fin", "prop")
   return(res)
 })
 fin_prod <- rbindlist(fin_prod, idcol = "simid")
 fin_prod$simid <- as.numeric(fin_prod$simid)
 fin_prod <- merge(fin_prod, simulations, by = "simid")
 
-sust_simus <- subset(fin_prod, med >=0.95)
-## only 19 simulations are 'sustainable' ie they can produce the same amount of timber for at least 200 years
+sust_simus <- subset(fin_prod, variable == "prop" & medF >=0.95)
+## only 20 simulations are 'sustainable' ie they can produce the same amount of timber for at least 200 years
 table(sust_simus$logCycle, sust_simus$logIntensity)
 table(sust_simus$omega0)
+
+sust_prodF <- subset(fin_prod, simid %in% sust_simus$simid & variable == "ini") 
 ```
 
-After 200 years, `r nrow(sust_simus)` (out of `r nrow(fin_prod)`) kept a constant total volume production. The maximum volume produced is xxx Mm$^3$.ha$^{-1}$ in current forest concessions and xxx Mm3/ha in all potential concessions (Flonas). 
+After 200 years, `r nrow(sust_simus)` (out of `r nrow(simulations)`) kept a constant total volume production. The maximum volume produced is `r signif(max(sust_prodF$medC)/1e3, 3)` km$^3$.ha$^{-1}$ in current forest concessions and `r signif(max(sust_prodF$medF)/1e6, 3)` Mm$^3$.ha$^{-1}$ in all potential concessions (Flonas). 
 
 ```{r timber-production-br, fig.height=6, fig.width = 10}
 dfvext_ann$omega0 = factor(dfvext_ann$omega0)
