@@ -90,7 +90,10 @@ simulateLogging <- function(timeLength,
     ## proportion of commercial trees in recruits
     ## between prelogging proportion of commercial trees omPreLog 
     ## and initial proportion of commercial species omega0
-    dfPred$omR <- runif(nrow(dfPred), min = dfPred$omPre, max = dfPred$omega0)
+    ## rm: with silviculture, omPre can be > than omega0
+    dfPred$omR <- runif(nrow(dfPred), 
+                        min = apply(cbind(dfPred$omPre, dfPred$omega0), 1, min), 
+                        max = apply(cbind(dfPred$omPre, dfPred$omega0), 1, max))
     
     ## recovery process
     rectot <- c()
@@ -108,6 +111,9 @@ simulateLogging <- function(timeLength,
       rectot <- rbind(rectot, rec)
     } 
     results <- merge(results, rectot, by = c("site", "iter"))
+    
+    if (any(is.na(results$omega))) stop("problem with omega")
+    
     ## update volPre and omPre
     data.table::setDT(rectot)
     rectot[, tcycle := max(trec), .(iter, site)]
@@ -122,9 +128,9 @@ simulateLogging <- function(timeLength,
                                     measure.vars = c("volume", "omega", "vextReal"))
     # 2b. calculate summary statistics
     if (uncertainties) {
-        results <- results[, .(lwr = quantile(value, 0.025), 
-                               med = quantile(value, 0.5), 
-                               upr = quantile(value, 0.975)), 
+        results <- results[, .(lwr = quantile(value, probs = 0.025), 
+                               med = quantile(value, probs = 0.5), 
+                               upr = quantile(value, probs = 0.975)), 
                            .(site, trec, variable)]
     } 
     results <- subset(results, !(variable == "vextReal" & trec > 1))
