@@ -23,13 +23,29 @@ if (!dir.exists("cache"))
 
 # Introduction
 
-- history and purpose of Brazilian forest concessions
+Since the 1970s, selective logging has established itself as the main silvicultural system in tropical regions. This system is based on very simple rules: the exploitation of a few commercial trees having reached a minimum cutting diameter and letting the forest recover during a rotation period generally between 25 and 35 years. 
+
+During the last three decades many studies aiming to assess the long term impact of selective logging in the Amazon have shown that in general the cycle length and harvesting intensities were insufficient to recover the commercial stock within the 30-35 year cycle [@Piponiot2019a].
+
+There is evidence that the current harvests of 10 to 30 m$^3$3 of logs per hectare with a cutting cycle of 30 years can only be sustained, over multiple cycles, if high-value, slow-growing hardwoods are replaced. By species of fast growth and low density, little valued in the current market [@Alder2000;@Keller2004;@Phillips2004a;@VanGardingen2006;@Schulze2008b].
+
+Although Reduced impact logging techniques were seen as a promising alternative to reduce the damage of logging and consequently to improve timber volume recovery [@Schulze2008b], most of the studies assessing the long-term impacts of such techniques in the tropics including the Amazon, showed that timber volume will recover at best by 50% within the rotation cycle duration fixed by legislation [@DeAvila2017].
+
+Despite the low recovery of timber stocks in logged forests, selective logging is still a widespread and economically viable land use in the Amazon because around 75% of the five hundred million ha of forests are still intact [@Potapov2017] and have accumulated highly valuable timber over centuries. It is very likely, however, that most logged forests will have a dramatic reduction in timber yields after the first logging rotation [@Piponiot2019a;@Putz2012].
+
+In 2006 Brazil created the SFB which aims to implement a very ambitious system of long-term logging concessions with the ultimate goal of eradicating illegal logging and concentrating Amazonian timber production within those concessions [@Brazil2006]. Today, these concessions are still limited in size (1.52 Mha total area) and their timber production (221 thousand m$^3$ annual production) represents only 0.002% of the timber extracted in the Brazilian Amazon [@SFB2019].
+
+The first objective of this paper is to assess a sustainable logging regime (logging intensity and rotation length) able to ensure a long-term and constant timber production in the Brazilian Amazon. The second objective is to assess if the potential annual timber production based on the potential concession areas in the Brazilian Amazon is in adequacy with the present and future (?) timber demand.
+The present timber production is 11 Mm3/year [@Vidal2020;@SFB2019], Do we have data on the future demand? Is the tendency to grow or to go down?
+
+In this study we used an Amazon-wide timber recovery model developed by @Piponiot2019a to estimate the total timber volume that could be produced in Brazilian logging concessions under varying cycle lengths, logging intensities and pool of commercial species. We identified the conditions under which selective logging was sustainable from a timber production point of view and what its production capacity was in relation to the demand for wood. 
+
 
 # Methods
 
 ## Study areas - Brazilian concessions
 
-- current forest concessions (from Lucas: ask for source)
+- current forest concessions from SFB: Shapefiles downloaded from (www.florestal.gov.br)[https://www.florestal.gov.br/florestas-sob-concessao/92-concessoes-florestais/florestas-sob-concessao]
 
 - maximum area available for concessions: all national forests (Flonas) in the Brazilian Amazon. Shapefiles downloaded from  (www.florestal.gov.br)[http://www.florestal.gov.br/component/content/article/127-informacoes-florestais/cadastro-nacional-de-florestas-publicas-cnfp/1894-cadastro-nacional-de-florestas-publicas-atualizacao-2019?Itemid=]
 
@@ -73,6 +89,9 @@ areaLoggingBR <- areaLogging[, c("long", "lat", "areaTot")]
 areaLoggingBR <- merge(areaLoggingBR, pconcessions, by = c("long", "lat"), all = TRUE)
 areaLoggingBR$pConcess[is.na(areaLoggingBR$pConcess)] <- 0
 areaLoggingBR$pFlona[is.na(areaLoggingBR$pFlona)] <- 0
+## all pixels with flonas (potential concessions): will be used in simulations
+locations <- subset(areaLoggingBR, pFlona > 0)
+locations$site <- 1:nrow(locations)
 ```
 
 ## The VDDE model 
@@ -222,47 +241,51 @@ simulations$simid <- 1:nrow(simulations)
 In the results, we only show simulations that have a constant production of timber during the 200 years of the simulation (with a 10% tolerance).
 
 ```{r run-simulations}
-if (!file.exists("cache/simulations_concessionsBR.Rdata")) {
-  
+if (!dir.exists("cache/simulations_concessionsBR/"))
+  dir.create("cache/simulations_concessionsBR/")  
+
+all_i = 1:nrow(simulations)
+del_i = as.numeric(gsub("recov|\\.Rdata", "", list.files("cache/simulations_concessionsBR/")))
+missing_simus <- all_i[!all_i%in%del_i]
+
+if (length(missing_simus) > 0) {
   source("R/simulateLogging.R")
-  
-  ## all pixels with flonas (could have loggi)
-  locations <- subset(areaLoggingBR, pFlona > 0)
-  locations$site <- 1:nrow(locations)
   
   # Calculate the number of cores
   no_cores <- detectCores() - 2
-  
   # Initiate cluster
   cl <- makeCluster(no_cores)
   clusterEvalQ(cl, library(data.table))
   clusterExport(cl, varlist = c("simulateLogging", "simulations", "timeLength", "locations", "rtruncnorm"))
   
-  if (!dir.exists("cache/simulations_concessionsBR/"))
-    dir.create("cache/simulations_concessionsBR/")  
-  
-  # recovCycles <- parLapply(cl, 1:nrow(simulations), function(i) {
-  recovCycles <- parLapply(cl, 9:20, function(i) {
+  recovCycles <- parLapply(cl, missing_simus, function(j) {
     recov <- simulateLogging(
       timeLength = timeLength,
-      logIntensity = simulations$logIntensity[i],
-      logCycle = simulations$logCycle[i], 
-      omega0 = simulations$omega0[i],
+      logIntensity = simulations$logIntensity[j],
+      logCycle = simulations$logCycle[j], 
+      omega0 = simulations$omega0[j],
       longitude = locations$long, 
       latitude = locations$lat,
-      silv = c(simulations$silvTreat[i], 20),
+      silv = c(simulations$silvTreat[j], 20),
       uncertainties = TRUE, keepAll = FALSE
     )
-    save(recov, file = paste0("cache/simulations_concessionsBR/recov", i, ".Rdata"))
+    save(recov, file = paste0("cache/simulations_concessionsBR/recov", j, ".Rdata"))
     return(recov)
   })
-  stopCluster(cl)
   
-} else { load("cache/simulations_concessionsBR.Rdata") }  
+  stopCluster(cl)
+} 
 ```
 
 ```{r prepare-results}
-results <- rbindlist(recovChangOmega, idcol = "simid")
+outputs <- lapply(list.files("cache/simulations_concessionsBR/", full.name = TRUE), function(fnm){
+  load(fnm)
+  get("recov")
+})
+names(outputs) <- gsub("recov|\\.Rdata", "", list.files("cache/simulations_concessionsBR/"))
+
+results <- rbindlist(outputs, idcol = "simid")
+results$simid <- as.numeric(results$simid)
 
 ## multiply by total area ####
 results <- merge(results, locations, by = "site")
@@ -319,8 +342,37 @@ dfvext_ann <- dfvext[, .(lwr = rep(lwr/logCycle, each = logCycle[1]),
 dfvext_ann <- subset(dfvext_ann, t <= timeLength)
 ```
 
+## Definition of sustainability
+
+Sustainability was defined in two ways (we use the median value of all runs): 
+
+(i) the total volume production must stay constant throughout the 200 years of simulation, with a 5% tolerance; 
+
+(ii) the total volume stocks must be at least 50% of their initial value at the end of the 200 years of simulation. 
+ 
 
 # Results
+
+```{r sustainable-combinations}
+fin_prod <- lapply(outputs, function(df) { 
+  df <- subset(df, variable == "vextReal")
+  ini <- colSums(df[ncycle==1, c("lwr", "med", "upr")])
+  fin <- colMeans(df[ncycle==max(ncycle), c("lwr", "med", "upr")])
+  res <- data.table(t(fin/ini))
+  colnames(res) <- c("lwr", "med", "upr")
+  return(res)
+})
+fin_prod <- rbindlist(fin_prod, idcol = "simid")
+fin_prod$simid <- as.numeric(fin_prod$simid)
+fin_prod <- merge(fin_prod, simulations, by = "simid")
+
+sust_simus <- subset(fin_prod, med >=0.95)
+## only 19 simulations are 'sustainable' ie they can produce the same amount of timber for at least 200 years
+table(sust_simus$logCycle, sust_simus$logIntensity)
+table(sust_simus$omega0)
+```
+
+After 200 years, `r nrow(sust_simus)` (out of `r nrow(fin_prod)`) kept a constant total volume production. The maximum volume produced is xxx Mm$^3$.ha$^{-1}$ in current forest concessions and xxx Mm3/ha in all potential concessions (Flonas). 
 
 ```{r timber-production-br, fig.height=6, fig.width = 10}
 dfvext_ann$omega0 = factor(dfvext_ann$omega0)
@@ -363,3 +415,5 @@ ggplot(dfvolume_ann, aes(x=t, y = med/1e6)) +
   theme_bw() + 
   theme(legend.position = "top") 
 ```
+
+# References
