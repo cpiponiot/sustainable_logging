@@ -33,10 +33,9 @@ Although Reduced impact logging techniques were seen as a promising alternative 
 
 Despite the low recovery of timber stocks in logged forests, selective logging is still a widespread and economically viable land use in the Amazon because around 75% of the five hundred million ha of forests are still intact [@Potapov2017] and have accumulated highly valuable timber over centuries. It is very likely, however, that most logged forests will have a dramatic reduction in timber yields after the first logging rotation [@Piponiot2019a;@Putz2012].
 
-In 2006 Brazil created the SFB which aims to implement a very ambitious system of long-term logging concessions with the ultimate goal of eradicating illegal logging and concentrating Amazonian timber production within those concessions [@Brazil2006]. Today, these concessions are still limited in size (1.52 Mha total area) and their timber production (221 thousand m$^3$ annual production) represents only 0.002% of the timber extracted in the Brazilian Amazon [@SFB2019].
+In 2006 Brazil created the SFB which aims to implement a very ambitious system of long-term logging concessions with the ultimate goal of eradicating illegal logging and concentrating Amazonian timber production within those concessions [@Brazil2006]. Today, these concessions are still limited in size (1.5 Mha total area) and their timber production (221 thousand m$^3$ annual production) represents only 2% of the timber extracted in the Brazilian Amazon [@SFB2019].
 
-The first objective of this paper is to assess a sustainable logging regime (logging intensity and rotation length) able to ensure a long-term and constant timber production in the Brazilian Amazon. The second objective is to assess if the potential annual timber production based on the potential concession areas in the Brazilian Amazon is in adequacy with the present and future (?) timber demand.
-The present timber production is 11 Mm3/year [@Vidal2020;@SFB2019], Do we have data on the future demand? Is the tendency to grow or to go down?
+The first objective of this paper is to assess a sustainable logging regime (logging intensity and rotation length) able to ensure a long-term and constant timber production in the Brazilian Amazon. The second objective is to assess if the potential annual timber production based on the potential concession areas in the Brazilian Amazon is in adequacy with the present and future (?) timber demand. The present timber production is 11 Mm$^3$.yr$^{-1}$ [@Vidal2020;@SFB2019]. 
 
 In this study we used an Amazon-wide timber recovery model developed by @Piponiot2019a to estimate the total timber volume that could be produced in Brazilian logging concessions under varying cycle lengths, logging intensities and pool of commercial species. We identified the conditions under which selective logging was sustainable from a timber production point of view and what its production capacity was in relation to the demand for wood. 
 
@@ -45,22 +44,14 @@ In this study we used an Amazon-wide timber recovery model developed by @Piponio
 
 ## Study areas - Brazilian concessions
 
-- current forest concessions from SFB: Shapefiles downloaded from (www.florestal.gov.br)[https://www.florestal.gov.br/florestas-sob-concessao/92-concessoes-florestais/florestas-sob-concessao]
+Our study focuses on the Brazilian forest concessions. These concessions are located in public forests and currently cover an area of 1.5 Mha in the Brazilian Amazon [@SFB2019]. We retrieved the map of forests currently under concession from [@SFB2020]. 
 
-- maximum area available for concessions: all national forests (Flonas) in the Brazilian Amazon. Shapefiles downloaded from  (www.florestal.gov.br)[http://www.florestal.gov.br/component/content/article/127-informacoes-florestais/cadastro-nacional-de-florestas-publicas-cnfp/1894-cadastro-nacional-de-florestas-publicas-atualizacao-2019?Itemid=]
-
-<!-- ```{r map-concessions} -->
-<!-- flonas <- rgdal::readOGR(dsn = "shapefiles/final", layer = "BRflonas") -->
-<!-- concessions <- rgdal::readOGR(dsn = "shapefiles/final", layer = "BRconcessions") -->
-<!-- plot(flonas) -->
-<!-- plot(concessions, add = TRUE, col=2) -->
-<!-- ``` -->
+The map of all public forests was downloaded from the Brazilian Forest Service website [@SFB2019a]. The maximum potential area of concessions was defined as all public forests in the Brazilian Amazon biome that are designated for sustainable use, excluding community forests, indigenous territories and military areas [as defined in @SFB2019, p. 112].  
 
 ```{r map-brazil-concess}
-if (! file.exists("data/pconcessions.Rdata")) {
-  ## download: http://www.florestal.gov.br/component/content/article/127-informacoes-florestais/cadastro-nacional-de-florestas-publicas-cnfp/1894-cadastro-nacional-de-florestas-publicas-atualizacao-2019?Itemid=
+if (!file.exists("data/pconcessions.Rdata")) {
   ## concessions
-  concessions <- rgdal::readOGR(dsn = "shapefiles/final", layer = "BRconcessions")
+  concessions <- rgdal::readOGR(dsn = "data_sfb/final", layer = "BRflopub")
   ext2 <- floor(raster::extent(concessions)) + c(0, 1, 0, 1)
   rst <- raster::raster(resolution = 0.01, ext = ext2)
   raster_concessions <- raster::rasterize(concessions, rst)
@@ -69,7 +60,7 @@ if (! file.exists("data/pconcessions.Rdata")) {
   pconcessions <- raster::as.data.frame(pconcessions, xy = TRUE)
   colnames(pconcessions) <- c("long", "lat", "pConcess")
   ## flonas
-  flonas <- rgdal::readOGR(dsn = "shapefiles/final", layer = "BRflonas")
+  flonas <- rgdal::readOGR(dsn = "data_sfb/final", layer = "BRflopub")
   ext2 <- floor(raster::extent(flonas)) + c(0, 1, 0, 1)
   rst <- raster::raster(resolution = 0.01, ext = ext2)
   raster_flonas <- raster::rasterize(flonas, rst)
@@ -96,9 +87,16 @@ locations$site <- 1:nrow(locations)
 
 ## The VDDE model 
 
-### Maturity and disturbance
+In this study we used the volume dynamics with differential equations (VDDE) model [@Piponiot2018]. 
+The VDDE model focuses on the volume of all live trees with diameter at breast height (DBH) $\geq$ 50 cm (the standard minimum cutting size in the Amazon Basin): this quantity will be referred to as total volume. By contrast, only a portion of this volume is composed of commercial species and will be referred to as commercial volume. 
 
-The timber recovery model used in this study is described in a previous publication [@Piponiot2018]. In this model, the total volume of trees $\geq$ 50 cm DBH is modeled as a function of a new variable, the forest maturity, that is itself estimated using volume dynamics data (volume changes from growth and mortality). 
+<!-- The initial (i.e. pre-logging) proportion of commercial volume is a parameter of the model.  -->
+
+<!-- In this model, the total volume is modelled as a function of a new variable, the forest maturity, that is itself estimated using volume dynamics data (volume changes from growth and mortality).  -->
+
+The VDDE model was calibrated at the Amazon Basin scale in a Bayesian framework with data from 3500 ha of forest plots, among which 845 ha are from 15 sites monitored for as long as 30 years after being subjected to selective logging [@Sist2015;@Piponiot2019a]. 
+
+
 
 ```{r illus-vol-recov, fig.height = 5, fig.width=7}
 
@@ -157,11 +155,12 @@ om0 = 0.8
 
 # test different silvilcultural effects
 ## increase in growth of commercial trees
+lbd = 0.25 # steepness of the decrease
 silv_effect = list(rep(1, tmax), ## no effect
-                   1 + 0.2*(1 - 1 / (exp(-(1:tmax) + 10) + 1)), ## 20% - 10 years
-                   1 + 0.2*(1 - 1 / (exp(-(1:tmax) + 20) + 1)), ## 20% - 20 years
-                   1 + 0.8*(1 - 1 / (exp(-(1:tmax) + 10) + 1)), ## 80% - 10 years
-                   1 + 0.8*(1 - 1 / (exp(-(1:tmax) + 20) + 1))) ## 80% - 20 years
+                   1 + 0.2*(1 - 1 / (exp(lbd*(10-(1:tmax))+log(4)) + 1)), ## 20% - 10 years
+                   1 + 0.2*(1 - 1 / (exp(lbd*(20-(1:tmax))+log(4)) + 1)), ## 20% - 20 years
+                   1 + 0.8*(1 - 1 / (exp(lbd*(10-(1:tmax))+log(4)) + 1)), ## 80% - 10 years
+                   1 + 0.8*(1 - 1 / (exp(lbd*(20-(1:tmax))+log(4)) + 1))) ## 80% - 20 years
 
 names(silv_effect) <- c("none", "20% - 10 years", "20% - 20 years", "80% - 10 years", "80% - 20 years")
 
@@ -377,50 +376,33 @@ sust_simus <- subset(fin_prod, variable == "prop" & medF >=0.95)
 ## only 20 simulations are 'sustainable' ie they can produce the same amount of timber for at least 200 years
 table(sust_simus$logCycle, sust_simus$logIntensity)
 table(sust_simus$omega0)
+table(sust_simus$silvTreat)
 
 sust_prodF <- subset(fin_prod, simid %in% sust_simus$simid & variable == "ini") 
 ```
 
-After 200 years, `r nrow(sust_simus)` (out of `r nrow(simulations)`) kept a constant total volume production. The maximum volume produced is `r signif(max(sust_prodF$medC)/1e3, 3)` km$^3$.ha$^{-1}$ in current forest concessions and `r signif(max(sust_prodF$medF)/1e6, 3)` Mm$^3$.ha$^{-1}$ in all potential concessions (Flonas). 
+After 200 years, `r nrow(sust_simus)` (out of `r nrow(simulations)`) kept a constant total volume production. The maximum volume produced is `r signif(max(sust_prodF$medC)/1e3, 3)` km$^3$ in current forest concessions and `r signif(max(sust_prodF$medF)/1e6, 3)` Mm$^3$ in all potential concessions (i.e. all available public forests). 
 
-```{r timber-production-br, fig.height=6, fig.width = 10}
-dfvext_ann$omega0 = factor(dfvext_ann$omega0)
-levels(dfvext_ann$omega0) = paste0("omega0 = ", as.numeric(levels(dfvext_ann$omega0))*100,"%")
-
-dfvext_ann$logrules <- paste("Cycle:", dfvext_ann$logCycle, "yrs; Intensity:", dfvext_ann$logIntensity, "m3/ha")
-
-dfvext_ann$ppf = factor(dfvext_ann$ppf)
-levels(dfvext_ann$ppf) = c("Currently available","All unprotected")
-
-ggplot(dfvext_ann, aes(x=t, y = med/1e3)) + 
-  geom_line(aes(colour = logrules)) +
-  geom_ribbon(alpha = 0.2, colour = NA, 
-              aes(fill = logrules, 
-                  ymin = lwr/1e3, 
-                  ymax = upr/1e3)) + 
-  facet_grid(ppf ~ omega0, scales = "free")  + 
-  labs(x = "Time (yrs)", y = "Timber production (km3/yr)") +
-  theme_bw() + 
-  theme(legend.position = "top") 
-```
 
 ```{r timber-stocks-br, fig.height=6, fig.width = 10}
-dfvolume_ann$omega0 = factor(dfvolume_ann$omega0)
-levels(dfvolume_ann$omega0) = paste0("omega0 = ", as.numeric(levels(dfvolume_ann$omega0))*100,"%")
+dfvol_fig <- subset(dfvolume_ann, ppf == "potential" & simid %in% sust_simus$simid)
 
-dfvolume_ann$logrules <- paste("Cycle:", dfvolume_ann$logCycle, "yrs; Intensity:", dfvolume_ann$vext, "m3/ha")
+dfvol_fig$omega0 = factor(dfvol_fig$omega0)
+levels(dfvol_fig$omega0) = paste0("omega0 = ", as.numeric(levels(dfvol_fig$omega0))*100,"%")
 
-dfvolume_ann$ppf = factor(dfvolume_ann$ppf)
-levels(dfvolume_ann$ppf) = c("Currently available","All unprotected")
+dfvol_fig$silvTreat = factor(dfvol_fig$silvTreat)
+levels(dfvol_fig$silvTreat) = paste0("Silv. effect = ", as.numeric(levels(dfvol_fig$silvTreat))*100,"%")
 
-ggplot(dfvolume_ann, aes(x=t, y = med/1e6)) + 
+dfvol_fig$logrules <- paste("Cycle:", dfvol_fig$logCycle, "yrs; Intensity:", dfvol_fig$logIntensity, "m3/ha")
+
+ggplot(dfvol_fig, aes(x=t, y = med/1e6)) + 
   geom_line(aes(colour = logrules)) +
   geom_ribbon(alpha = 0.2, colour = NA, 
               aes(fill = logrules, 
                   ymin = lwr/1e6, 
                   ymax = upr/1e6)) + 
-  facet_grid(ppf ~ omega0, scales = "free")  + 
-  labs(x = "Time (yrs)", y = "Timber production (Mm3/yr)") +
+  facet_grid(silvTreat ~ omega0, scales = "free")  + 
+  labs(x = "Time (yrs)", y = "Commercial volume (Mm3/yr)") +
   theme_bw() + 
   theme(legend.position = "top") 
 ```
