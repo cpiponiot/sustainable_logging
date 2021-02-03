@@ -39,3 +39,7 @@ vignettes/*.pdf
 # R Environment Variables
 .Renviron
 
+# large shapefiles
+data_sfb/public-forests
+data_sfb/current-federal-concessions
+shapefiles_lucas
