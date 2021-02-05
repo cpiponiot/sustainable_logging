@@ -1,7 +1,7 @@
 ---
 title: "Sustainability of Brazilian forest concessions"
 output: 
-  pdf_document:
+  word_document:
     keep_md: true
     number_sections: true
 bibliography: myBiblio.bib
@@ -16,6 +16,10 @@ packages_to_install <- packages_needed[!( packages_needed %in% rownames(installe
 if (length(packages_to_install) > 0)
   install.packages(packages_to_install)
 lapply(packages_needed, require, character.only = TRUE)
+
+## source all functions
+file.sources = list.files(path = "R/", pattern="*.R", full.names = TRUE)
+sapply(file.sources, source, .GlobalEnv)
 
 if (!dir.exists("cache"))
   dir.create("cache")
@@ -44,9 +48,7 @@ In this study we used an Amazon-wide timber recovery model developed by @Piponio
 
 ## Study areas - Brazilian concessions
 
-Our study focuses on the Brazilian forest concessions. These concessions are located in public forests and currently cover an area of 1.5 Mha in the Brazilian Amazon [@SFB2019]. We retrieved the map of forests currently under concession from [@SFB2020]. 
-
-The map of all public forests was downloaded from the Brazilian Forest Service website [@SFB2019a]. The maximum potential area of concessions was defined as all public forests in the Brazilian Amazon biome that are designated for sustainable use, excluding community forests, indigenous territories and military areas [as defined in @SFB2019, p. 112].  
+Our study focuses on the Brazilian forest concessions. These concessions are located in public forests and currently cover an area of 1.5 Mha in the Brazilian Amazon [@SFB2019]. We retrieved the map of forests currently under concession and the map of all public forests from the Brazilian Forest Service website [@SFB2020;@SFB2019a]. We defined the area of all potential concessions as the area of all public forests that (i) are in the Brazilian Amazon biome, (ii) are designated for sustainable use, and (iii) are not community forests, indigenous territories or military areas [as defined in @SFB2019, p. 112].  
 
 ```{r map-brazil-concess}
 if (!file.exists("data/pconcessions.Rdata")) {
@@ -88,62 +90,31 @@ locations$site <- 1:nrow(locations)
 ## The VDDE model 
 
 In this study we used the volume dynamics with differential equations (VDDE) model [@Piponiot2018]. 
-The VDDE model focuses on the volume of all live trees with diameter at breast height (DBH) $\geq$ 50 cm (the standard minimum cutting size in the Amazon Basin): this quantity will be referred to as total volume. By contrast, only a portion of this volume is composed of commercial species and will be referred to as commercial volume. 
+The VDDE model focuses on the total volume, i.e. the volume of all live trees with diameter at breast height (DBH)  50 cm (the standard minimum cutting size in the Amazon Basin). By contrast, only a portion of this volume is composed of commercial species and will be referred to as commercial volume. The commercial volume is determined based on a variable of the model, the proportion of commercial volume $\omega$. 
 
-<!-- The initial (i.e. pre-logging) proportion of commercial volume is a parameter of the model.  -->
+Each logging cycle is composed of 2 steps: (i) the logging itself that depends mostly on the logging intensity and (ii) the post-logging volume recovery phase that depends mostly on the duration of the logging cycle. The logging lowers the total volume and the proportion of commercial volume. The total volume and proportion of commercial species are then allowed to increase during the reovery phase
 
-<!-- In this model, the total volume is modelled as a function of a new variable, the forest maturity, that is itself estimated using volume dynamics data (volume changes from growth and mortality).  -->
-
-The VDDE model was calibrated at the Amazon Basin scale in a Bayesian framework with data from 3500 ha of forest plots, among which 845 ha are from 15 sites monitored for as long as 30 years after being subjected to selective logging [@Sist2015;@Piponiot2019a]. 
-
-
-
-```{r illus-vol-recov, fig.height = 5, fig.width=7}
-
-source("R/volume.R")
-
-tobs = seq(150,180,2)
-vobs = rnorm(length(tobs), volume(tobs, ag = 5, am = 1, bg = 0.008, bm = 0.004, th = 0.035), 1)
-
-curve(volume(x, ag = 5, am = 1, bg = 0.008, bm = 0.004, th = 0.035), 
-      xlim = c(0,300), ylab = expression("Volume ("*m^3*ha^{-1}*")"), xlab = "Estimated maturity", lty = 2)
-points(tobs, vobs, pch = 16)
-legend("topleft", legend = c("Observations", "Predictions"), bty = "n", 
-       lty = c(0, 2), lwd = c(0, 1), pch = c(16, NA))
-
-```
-
-The maturity increases (1 unit per year) when there is no disturbance and decreases abruptly when there is a disturbance, for example selective logging. 
-
-```{r illus-disturb, fig.height = 5, fig.width=7}
-
-library(diagram)
-
-curve(volume(x, ag = 5, am = 1, bg = 0.008, bm = 0.004, th = 0.035), 
-      xlim = c(0,300), ylab = expression("Volume ("*m^3*ha^{-1}*")"), xlab = "Estimated maturity")
-curvedarrow(c(180, volume(180, ag = 5, am = 1, bg = 0.008, bm = 0.004, th = 0.035)), 
-            c(100, volume(100, ag = 5, am = 1, bg = 0.008, bm = 0.004, th = 0.035)), 
-            lwd = 2, lty = 1, lcol = "red", 
-            arr.pos = 0.95, curve = 0.3, dr = 0.01, segment = c(0, 1))
-text(x=140, y = 100, labels = "Disturbance", pos = 2, col=2)
-curvedarrow(c(105, volume(100, ag = 5, am = 1, bg = 0.008, bm = 0.004, th = 0.035) - 4), 
-            c(150, volume(150, ag = 5, am = 1, bg = 0.008, bm = 0.004, th = 0.035) - 5),
-            lty = 2, curve = -0.01, arr.pos = 0.95)
-text(x=145, y = 50, labels = "Recovery", pos = 3)
-
-```
-
-### Proportion of commercial volume
-
-Only part of the total volume is commercial: the pre-logging proportion of commercial volume is $\omega_0$. Because logging targets commercial species, their proportion in the total volume $\omega$ decreases after logging (see the methodology paper for a complete decription of the model [@Piponiot2018]), but can increase again through recruitment of small trees (< 50 cm DBH). 
+The pre-logging proportion of commercial volume $\omega_0$ can be set as a input of the model: low values of $\omega_0$ represent highly selective logging where only the most valuable species are logged; by contrast, high values of $\omega_0$ mean that most species are logged. 
+Other parameters of the VDDE model can vary in space. The model was calibrated at the Amazon Basin scale in a Bayesian framework with data from 3500 ha of forest plots, among which 845 ha are from 15 sites monitored for as long as 30 years after being subjected to selective logging [@Sist2015;@Piponiot2019a]. 
 
 ### Introducing a new module: silvicultural treatments 
 
-According to the literature, the effect of silvicultural treatments such as liana removal (and in some cases tree) xxx
+The VDDE model as presented in @Piponiot2019 represents the most widespread type of selective logging in the tropics, which consists of selectively harvesting some trees and leaving the forest to recover with no additional human intervention. Some treatments can however be applied to the stand before, during or after the harvest to increase post-logging timber recovery. These silvicultural treatments usually consist of killing competitor trees or removing overtopping lianas from future crop trees [REF]. Removing competitor trees can have several disadvantages, such as emitting large amounts of carbon and killing potential future commercial species. Liana removal has been shown to be a cost-effective silvicultural treatment with long-lasting effects: it increased by xx-xx% the growth of targeted trees, and its effect can last for xx years [REFS]. 
 
-```{r illustr-silviculture, fig.width = 8, fig.height=5}
+In this study we added a module to the VDDE model that simulates the effect of silvicultural treatments such as liana removal. To do so, we increase the growth of commercial volume by a coefficient $silv$, the effect of silviculture, defined as a decreasing function of recovery time $t_{rec}$ (i.e. time since the last logging event, when the treatment is applied). This function is an adaptation of the logistic function (see equation xx and Figure 1). The codes are provided in the appendix xx. 
+
+$$silv(t_{rec}) = Smax\cdot\left(1 - \frac{1}{exp(\lambda \cdot (t_{80}-t_{rec})+log(4)) + 1} \right)$$ 
+
+where $t_{80}$ is the recovery time when the function reaches 80% of its maximum value $Smax$ and $\lambda$ controls the steepness of the decrease. In this study we drew (positive) parameter values from the following lognormal distributions: $Smax \sim log\mathcal{N} (log(0.5), \frac{log(1)-log(0.5)}{2})$, $t_{80} \sim log\mathcal{N} (log(20), \frac{log(50)-log(20)}{2})$ and $\lambda \sim log\mathcal{N} (log(0.25), \frac{log(1)-log(0.25)}{2})$. 
+Under those distribution, the median of parameters $Smax$, $t_{80}$ and $\lambda$ is respectively 0.5, 20 years and 0.25 yr$^{-1}$, and their 97.5$^{th}$ percentile is respectively 1, 50 yr and 1 yr$^{-1}$. The values of the distributions were chosen based on the literature [REFS], and with large standard deviation to represent the uncertainty over these estimates. 
+
+> idea: lambda and t80 can also be randomly drawn
+
+> data: @Roopsind2017: liana + girdling, +150% increase in volume recovery after 20 years
+
+```{r illustr-silviculture, fig.width = 8, fig.height=4, fig.caption = "Figure 1: silviculture effect as a function of recovery time."}
 ## parameters
-tmax = 100
+tmax = 50
 ag = 5
 bg = 0.01
 am = 4
@@ -152,60 +123,72 @@ theta = 0.002
 intpR = 5
 slopepR = -1.5
 om0 = 0.8
+lbd = 0.25 # steepness of the decrease
 
 # test different silvilcultural effects
 ## increase in growth of commercial trees
-lbd = 0.25 # steepness of the decrease
-silv_effect = list(rep(1, tmax), ## no effect
+silv_effect = list(1 + 0*(1 - 1 / (exp(lbd*(0-(1:tmax))+log(4)) + 1)), ## no effect
                    1 + 0.2*(1 - 1 / (exp(lbd*(10-(1:tmax))+log(4)) + 1)), ## 20% - 10 years
                    1 + 0.2*(1 - 1 / (exp(lbd*(20-(1:tmax))+log(4)) + 1)), ## 20% - 20 years
-                   1 + 0.8*(1 - 1 / (exp(lbd*(10-(1:tmax))+log(4)) + 1)), ## 80% - 10 years
-                   1 + 0.8*(1 - 1 / (exp(lbd*(20-(1:tmax))+log(4)) + 1))) ## 80% - 20 years
+                   1 + 0.5*(1 - 1 / (exp(lbd*(10-(1:tmax))+log(4)) + 1)), ## 50% - 10 years
+                   1 + 0.5*(1 - 1 / (exp(lbd*(20-(1:tmax))+log(4)) + 1))) ## 50% - 20 years
 
-names(silv_effect) <- c("none", "20% - 10 years", "20% - 20 years", "80% - 10 years", "80% - 20 years")
+names(silv_effect) <- c("none", "20% - 10 years", "20% - 20 years", "50% - 10 years", "50% - 20 years")
 
-simulations <- lapply(silv_effect, function(K) {
-  # initialization
-  V = c(100) 
-  om = c(0.2) 
-  vtest = volume(t = 1:500, ag = ag, am = am, bg = bg, bm = bm, th = theta)
-  t0_test = which.min(abs(vtest-100))
-  for (t in 1:(tmax-1)) {
-    pR = 1 / (1 + exp(-(intpR + slopepR * log(V[t]))))
-    eta = pR * (om0*K[t] + 1 - om0) + (1 - pR) * (om[t]*K[t] + 1 - om[t]) 
-    g = (ag*(1-exp(-bg*(t0_test+t))) - theta*V[t])*eta
-    m = am*(1-exp(-bm*(t0_test+t)))
-    V[t+1] = V[t] + g - m
-    om[t+1] = min((V[t]*om[t] + (ag*(1-exp(-bg*(t0_test+t))) - theta*V[t]) * K[t] * (om0*pR + om[t]*(1-pR)) - m*om[t] ) / V[t+1], 1)
-  }
-  return(data.frame(t = 1:tmax, silv = (K-1)*100, vol = V, omega = om*100))
-})
+full <- FALSE
+if (full){
+  simulations <- lapply(silv_effect, function(K) {
+    # initialization
+    V = c(100)
+    om = c(0.2)
+    vtest = volume(t = 1:500, ag = ag, am = am, bg = bg, bm = bm, th = theta)
+    t0_test = which.min(abs(vtest-100))
+    for (t in 1:(tmax-1)) {
+      pR = 1 / (1 + exp(-(intpR + slopepR * log(V[t]))))
+      eta = pR * (om0*K[t] + 1 - om0) + (1 - pR) * (om[t]*K[t] + 1 - om[t])
+      g = (ag*(1-exp(-bg*(t0_test+t))) - theta*V[t])*eta
+      m = am*(1-exp(-bm*(t0_test+t)))
+      V[t+1] = V[t] + g - m
+      om[t+1] = min((V[t]*om[t] + (ag*(1-exp(-bg*(t0_test+t))) - theta*V[t]) * K[t] * (om0*pR + om[t]*(1-pR)) - m*om[t] ) / V[t+1], 1)
+    }
+    return(data.frame(t = 1:tmax, silv = (K-1)*100, vol = V, omega = om*100))
+  })
+  
+  simulations <- rbindlist(simulations, idcol = "treatment")
+  simulations[, vcom := vol*omega/100]
+  dfsim <- melt(simulations, measure.vars = c("silv", "vol", "omega", "vcom"))
+  levels(dfsim$variable) <- c("Effect of silvicultural treatments\non commercial volume growth (%)",
+                              "Total volume (m3/ha)", "Proportion of commercial volume (%)", "Commercial volume (m3/ha)")
+  
+  ## graph
+  library(ggplot2)
+  ggplot(dfsim, aes(x = t, y = value, color = treatment)) +
+    geom_line() +
+    facet_wrap(~ variable, scales = "free") +
+    theme_bw() +
+    expand_limits(x = 0, y = 0) +
+    scale_x_continuous(expand = c(0, 0)) +
+    labs(x = "Recovery time (yr)", y = "")
+} else {
+  df <- data.frame(treatment = rep(names(silv_effect), each = tmax), 
+                   trec = rep(1:tmax, length(silv_effect)), 
+                   silv = (unlist(silv_effect)-1)*100)
+  # dflines <- 
+  ggplot(df, aes(x = trec, y = silv, color = treatment)) + 
+    geom_line()+
+    theme_classic() +
+    annotate(geom = "segment", lty = 2, 
+             x = c(0, 0, 10 , 20), 
+             xend = c(20 , 20, 10, 20),
+             y = c(40, 16, 0, 0), 
+             yend = c(40, 16, 40, 40)) + 
+    scale_x_continuous(expand = c(0, 0)) + 
+    labs(x = "Recovery time (yr)", y = "Increase in commercial volume growth (%)")
+}
 
-simulations <- rbindlist(simulations, idcol = "treatment")
-simulations[, vcom := vol*omega/100]
-dfsim <- melt(simulations, measure.vars = c("silv", "vol", "omega", "vcom"))
-levels(dfsim$variable) <- c("Effect of silvicultural treatments\non commercial volume growth (%)", 
-                            "Total volume (m3/ha)", "Proportion of commercial volume (%)", "Commercial volume (m3/ha)")
-
-## graph
-library(ggplot2)
-ggplot(dfsim, aes(x = t, y = value, color = treatment)) + 
-  geom_line() +
-  facet_wrap(~ variable, scales = "free") +
-  theme_bw() + 
-  expand_limits(x = 0, y = 0) + 
-  scale_x_continuous(expand = c(0, 0)) +
-  labs(x = "Recovery time (yr)", y = "")
 ```
 
-### Model calibration at the Amazonian scale 
-
-This model was calibrated with data from TmFO plots to make spatially-explicit predictions of post-logging timber recovery in Amazonia (paper submitted to Environmental Research Letters). 
-
-![Timber recovery predictions (% of pre-logging timber stocks) from the model calibrated with TmFO data, as a function of logging cycle length (columns) and logging intensity (rows).](graphs/recovery_amazonia.PNG)
-
-
-## Simulations
+## Testing scenarios
 
 We simulate all combinations of the following parameters: 
 
@@ -229,7 +212,7 @@ omega0 <- c(0.2, 0.5, 0.9)
 logIntensity <- (1:3)*10
 logCycle <- c(20, 35, 60)
 logArea <- c("current", "potential")
-silvTreat <- c(0, 0.2, 0.5)
+silvTreat <- c(0, 0.5)
 simulations <- expand.grid(omega0 = omega0, 
                            logIntensity = logIntensity, 
                            logCycle = logCycle, 
@@ -265,7 +248,8 @@ if (length(missing_simus) > 0) {
       omega0 = simulations$omega0[j],
       longitude = locations$long, 
       latitude = locations$lat,
-      silv = c(simulations$silvTreat[j], 20),
+      silv = c(simulations$silvTreat[j], 20, 0.25),
+      silv_upr = c(1, 50, 1),
       uncertainties = TRUE, keepAll = FALSE
     )
     save(recov, file = paste0("cache/simulations_concessionsBR/recov", j, ".Rdata"))
@@ -348,7 +332,7 @@ Sustainability was defined in two ways (we use the median value of all runs):
 (i) the total volume production must stay constant throughout the 200 years of simulation, with a 5% tolerance; 
 
 (ii) the total volume stocks must be at least 50% of their initial value at the end of the 200 years of simulation. 
- 
+
 
 # Results
 
@@ -381,7 +365,7 @@ table(sust_simus$silvTreat)
 sust_prodF <- subset(fin_prod, simid %in% sust_simus$simid & variable == "ini") 
 ```
 
-After 200 years, `r nrow(sust_simus)` (out of `r nrow(simulations)`) kept a constant total volume production. The maximum volume produced is `r signif(max(sust_prodF$medC)/1e3, 3)` km$^3$ in current forest concessions and `r signif(max(sust_prodF$medF)/1e6, 3)` Mm$^3$ in all potential concessions (i.e. all available public forests). 
+After 200 years, `r nrow(sust_simus)` (out of `r nrow(simulations)`) kept a constant total volume production. The maximum volume produced is `r signif(max(sust_prodF$medC)/1e6, 3)` Mm$^3$ in current forest concessions and `r signif(max(sust_prodF$medF)/1e6, 3)` Mm$^3$ in all potential concessions (i.e. all available public forests). 
 
 
 ```{r timber-stocks-br, fig.height=6, fig.width = 10}

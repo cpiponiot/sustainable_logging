@@ -32,7 +32,7 @@ recovery <- function (vol1,
                       intR,
                       sloR,
                       omR,
-                      silv = c(0,0), 
+                      silv = c(0,0,0), 
                       keepAll = FALSE) {
   ## load all functions
   file.sources = list.files(path = "R/", pattern="*.R", full.names = TRUE)
@@ -43,7 +43,7 @@ recovery <- function (vol1,
   omega <- c(om1) 
   
   ## silviculture effect 
-  sf <- 1 + silv[1]*(1 - 1 / (exp(-(1:logCycle) + silv[2]) + 1))
+  sf <- 1 + silv[1]*(1 - 1 / (exp(silv[3]*(silv[2] - (1:logCycle))+log(4))  + 1))
   
   for (j in 1:(logCycle-1)) {
     pR <- 1 / (1 + exp(-(intR + sloR * log(volume[j]))))

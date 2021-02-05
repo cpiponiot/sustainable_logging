@@ -11,12 +11,17 @@
 #' @param latitude
 #' @param dti
 #' @param uncertainties
-#' @param silv Numeric vector of length 2: the first value is the % increase of
-#'   commercial trees growth due to silvicultural treatments, and the second
-#'   value is the duration of those effects. Default is c(0,0) (no silvicultural
-#'   treatment).
-#' @param keepAll Logical (cf recovery() function): keep all time steps? Default is FALSE
-#'
+#' @param silv Numeric vector of length 3: the first value is the % increase of
+#' commercial trees growth due to silvicultural treatments, the second value is
+#' the duration of those effects, and the third element controls the steepness
+#' of the curve. Default is c(0,0,0) (no silvicultural treatment).
+#' @param silv_upr Numeric vector of length 3: when uncertainties = TRUE, `silv`
+#'   will be the median value of silviculture parameters and `silv_upr` as the
+#'   97.5th percentile: values are then drawn from a lognormal distribution with 
+#'   mean log(silv) and standard deviation -log(silv)/2.
+#' @param keepAll Logical (cf recovery() function): keep all time steps? Default
+#'   is FALSE
+#'   
 #' @return A data frame xxx
 #'
 #' @export
@@ -29,7 +34,8 @@ simulateLogging <- function(timeLength,
                             latitude,
                             dti = NA,
                             uncertainties = TRUE,
-                            silv = c(0,0), 
+                            silv = c(0,0,0), 
+                            silv_upr = NULL,
                             keepAll = FALSE
 ) {
   ## without error propagation: timbRecovery
@@ -63,13 +69,27 @@ simulateLogging <- function(timeLength,
   if (any(is.na(dti))) {
     load("data/paramStan.Rdata")
     if (uncertainties) {
-    dfPred$dti <- sample(pars_dti, nrow(dfPred), replace = TRUE)
+      dfPred$dti <- sample(pars_dti, nrow(dfPred), replace = TRUE)
     } else {
       dfPred$dti <- mean(pars_dti)
     }
   }
   dfPred[, matInit := stem_mort ^ (-lambda_ti) * (1 - dti)]
   dfPred[, vol0 := volume(matInit, aG_FORMIND, aM, bP, bM, theta)]
+  
+  ## silviculture treatment ##
+  if (uncertainties & all(silv > 0) & !is.null(silv_upr)) {
+    simsilv <- function(med, upr) rlnorm(100, log(med), log(upr/med)/2)
+    silvs <- data.frame(iter = 1:100, 
+                        silv1 = simsilv(silv[1], silv_upr[1]),
+                        silv2 = simsilv(silv[2], silv_upr[2]), 
+                        silv3 = simsilv(silv[3], silv_upr[3]))
+    dfPred <- merge(dfPred, silvs, by = "iter")
+  } else {
+    dfPred$silv1 <- silv[1]
+    dfPred$silv2 <- silv[2]
+    dfPred$silv3 <- silv[3]
+  }
   
   ## simulate n logging cycles ####
   ## number of cycles to reach timeLength
@@ -99,7 +119,8 @@ simulateLogging <- function(timeLength,
     rectot <- c()
     for (k in 1:nrow(dfPred)) {
       rec <- recovery(vol1 = dfPred$vol1[k], om1 = dfPred$om1[k], 
-                      logCycle = dfPred$logCycle[k], silv = silv, 
+                      logCycle = dfPred$logCycle[k], 
+                      silv = c(dfPred$silv1[k], dfPred$silv2[k], dfPred$silv3[k]), 
                       ag = dfPred$aG_FORMIND[k], bg = dfPred$bP[k], 
                       am = dfPred$aM[k], bm = dfPred$bM[k],
                       theta = dfPred$theta[k], omR = dfPred$omR[k], 
@@ -125,13 +146,13 @@ simulateLogging <- function(timeLength,
     results$volume <- results$volume*(1-results$pdef)
     # 2. melt results dataframe
     results <- data.table::melt(results, id.vars = c("site", "trec"), 
-                                    measure.vars = c("volume", "omega", "vextReal"))
+                                measure.vars = c("volume", "omega", "vextReal"))
     # 2b. calculate summary statistics
     if (uncertainties) {
-        results <- results[, .(lwr = quantile(value, probs = 0.025), 
-                               med = quantile(value, probs = 0.5), 
-                               upr = quantile(value, probs = 0.975)), 
-                           .(site, trec, variable)]
+      results <- results[, .(lwr = quantile(value, probs = 0.025), 
+                             med = quantile(value, probs = 0.5), 
+                             upr = quantile(value, probs = 0.975)), 
+                         .(site, trec, variable)]
     } 
     results <- subset(results, !(variable == "vextReal" & trec > 1))
     ## TODO check that prelogging proportion of commercial trees < proportion of commercial species in recruited trees < initial proportion of commercial species
