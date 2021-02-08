@@ -52,17 +52,25 @@ Our study focuses on the Brazilian forest concessions. These concessions are loc
 
 ```{r map-brazil-concess}
 if (!file.exists("data/pconcessions.Rdata")) {
-  ## concessions
-  concessions <- rgdal::readOGR(dsn = "data_sfb/final", layer = "BRflopub")
+  ## current concessions ####
+  concessions <- rgdal::readOGR(dsn = "data_sfb/final", layer = "BRconc")
+  # change CRS
+  concessions <- spTransform(concessions, CRS("+proj=longlat +datum=WGS84"))
+  # define new raster with resolution = 1 degree
   ext2 <- floor(raster::extent(concessions)) + c(0, 1, 0, 1)
   rst <- raster::raster(resolution = 0.01, ext = ext2)
+  ## transform shapefile into raster with 1 degree resolution
   raster_concessions <- raster::rasterize(concessions, rst)
   raster_concessions2 <- !is.na(raster_concessions)
   pconcessions <- raster::aggregate(raster_concessions2, fact = 100)
   pconcessions <- raster::as.data.frame(pconcessions, xy = TRUE)
   colnames(pconcessions) <- c("long", "lat", "pConcess")
-  ## flonas
+  
+  ## all potential concessions ####
   flonas <- rgdal::readOGR(dsn = "data_sfb/final", layer = "BRflopub")
+  # change CRS
+  flonas <- spTransform(flonas, CRS("+proj=longlat +datum=WGS84"))
+  # define new raster with resolution = 1 degree
   ext2 <- floor(raster::extent(flonas)) + c(0, 1, 0, 1)
   rst <- raster::raster(resolution = 0.01, ext = ext2)
   raster_flonas <- raster::rasterize(flonas, rst)
@@ -76,16 +84,36 @@ if (!file.exists("data/pconcessions.Rdata")) {
   pconcessions <- subset(pconcessions, pConcess > 0 | pFlona > 0)
   save(pconcessions, file = "data/pconcessions.Rdata")
 } else load("data/pconcessions.Rdata")
-
-load("data/areaLogging.Rdata")
-areaLoggingBR <- areaLogging[, c("long", "lat", "areaTot")]
-areaLoggingBR <- merge(areaLoggingBR, pconcessions, by = c("long", "lat"), all = TRUE)
-areaLoggingBR$pConcess[is.na(areaLoggingBR$pConcess)] <- 0
-areaLoggingBR$pFlona[is.na(areaLoggingBR$pFlona)] <- 0
-## all pixels with flonas (potential concessions): will be used in simulations
-locations <- subset(areaLoggingBR, pFlona > 0)
-locations$site <- 1:nrow(locations)
 ```
+
+```{r get-area-pixels}
+raster_conc <- expand.grid(long = seq(min(pconcessions$long), max(pconcessions$long)), 
+                           lat = seq(min(pconcessions$lat), max(pconcessions$lat)))
+coordinates(raster_conc) <- ~long + lat
+proj4string(raster_conc) <- CRS("+proj=longlat +datum=WGS84")
+gridded(raster_conc) <- TRUE
+areatot <- raster::area(raster::raster(raster_conc)) ## pixel area, in km2
+raster_conc$area <- raster::extract(areatot, raster_conc)*100 ## km -> ha
+
+pconcessions <- merge(pconcessions, 
+                      as.data.frame(raster_conc), 
+                      by = c("long", "lat"))
+
+pconcessions$pConcess[is.na(pconcessions$pConcess)] <- 0
+pconcessions$pFlona[is.na(pconcessions$pFlona)] <- 0
+## all pixels with flonas (potential concessions): will be used in simulations
+locations <- subset(pconcessions, pFlona > 0)
+locations$site <- 1:nrow(locations)
+
+## problem 
+# concessions <- rgdal::readOGR(dsn = "data_sfb/final", layer = "BRconc")
+# testthat::expect_equal(gArea(concessions)/1e6 / sum(locations$area*locations$pConcess), 1, tolerance = 1e-2)
+# flonas <- rgdal::readOGR(dsn = "data_sfb/final", layer = "BRflopub")
+# flonas <- spTransform(flonas, proj4string(concessions))
+# testthat::expect_equal(gArea(flonas)/1e6 /sum(locations$area*locations$pFlona), 1, tolerance = 1e-2) ## accept 1% difference
+```
+
+The total area of current concessions is `r signif(sum(locations$area*locations$pConcess)/1e6, 2)` Mha, and the area of all potential concessions is `r signif(sum(locations$area*locations$pFlona)/1e6, 2)`. 
 
 ## The VDDE model 
 
@@ -105,7 +133,7 @@ In this study we added a module to the VDDE model that simulates the effect of s
 
 $$silv(t_{rec}) = Smax\cdot\left(1 - \frac{1}{exp(\lambda \cdot (t_{80}-t_{rec})+log(4)) + 1} \right)$$ 
 
-where $t_{80}$ is the recovery time when the function reaches 80% of its maximum value $Smax$ and $\lambda$ controls the steepness of the decrease. In this study we drew (positive) parameter values from the following lognormal distributions: $Smax \sim log\mathcal{N} (log(0.5), \frac{log(1)-log(0.5)}{2})$, $t_{80} \sim log\mathcal{N} (log(20), \frac{log(50)-log(20)}{2})$ and $\lambda \sim log\mathcal{N} (log(0.25), \frac{log(1)-log(0.25)}{2})$. 
+where $t_{80}$ is the time when the function reaches 80% of its initial value $Smax$ and $\lambda$ controls the steepness of the decrease. In this study we drew (positive) parameter values from the following lognormal distributions: $Smax \sim log\mathcal{N} (log(0.5), \frac{log(1)-log(0.5)}{2})$, $t_{80} \sim log\mathcal{N} (log(20), \frac{log(50)-log(20)}{2})$ and $\lambda \sim log\mathcal{N} (log(0.25), \frac{log(1)-log(0.25)}{2})$. 
 Under those distribution, the median of parameters $Smax$, $t_{80}$ and $\lambda$ is respectively 0.5, 20 years and 0.25 yr$^{-1}$, and their 97.5$^{th}$ percentile is respectively 1, 50 yr and 1 yr$^{-1}$. The values of the distributions were chosen based on the literature [REFS], and with large standard deviation to represent the uncertainty over these estimates. 
 
 > idea: lambda and t80 can also be randomly drawn
@@ -190,28 +218,27 @@ if (full){
 
 ## Testing scenarios
 
-We simulate all combinations of the following parameters: 
+In this study we tested 108 different scenarios by using all combinations of the following inputs:
 
-- initial proportion of commercial timber: 20%, 50% or 90%;
+- initial proportion of commercial volume: 20%, 50% or 90%;
 
 - logging intensity: 10, 20 or 30 m$^3$.ha$^{-1}$;
 
 - length of cutting cycles: 20, 35 or 60 years;
 
-- logged areas: current concessions or all Amazonian Flonas;
+- logged areas: current concessions or all potential concessions;
 
-- effect of silvicultural treatments: no effect, 20% or 50% increase of commercial timber growth during 20 years. 
+- effect of silvicultural treatments: no effect, or 50% increase of commercial timber growth during 20 years. 
 
-The total number of simulations is 3x3x3x3x2 = 162. 
+For each of these scenarios, we simulated the effect of logging on total volume, proportion of commercial volume and timber production during 200 years after the first logging event. 
 
-Simulation over the first 200 years after the first logging event
+In the results, we only show sustainable scenarios, defined as scenarios where the median timber production stays constant durign the 200 years of simulation (with a 5% tolerance).
 
 ```{r define-simulations}
 timeLength <- 200
 omega0 <- c(0.2, 0.5, 0.9)
 logIntensity <- (1:3)*10
 logCycle <- c(20, 35, 60)
-logArea <- c("current", "potential")
 silvTreat <- c(0, 0.5)
 simulations <- expand.grid(omega0 = omega0, 
                            logIntensity = logIntensity, 
@@ -219,8 +246,6 @@ simulations <- expand.grid(omega0 = omega0,
                            silvTreat = silvTreat)
 simulations$simid <- 1:nrow(simulations)
 ```
-
-In the results, we only show simulations that have a constant production of timber during the 200 years of the simulation (with a 10% tolerance).
 
 ```{r run-simulations}
 if (!dir.exists("cache/simulations_concessionsBR/"))
@@ -276,100 +301,147 @@ results <- melt(results, measure.vars = c("pConcess", "pFlona"),
                 variable.name = "ppf", value.name = "pArea", value.factor = TRUE)
 levels(results$ppf) <- c("current", "potential")
 results <- subset(results, pArea > 0)
-results[, c("lwr", "med", "upr")] <- results[, c("lwr", "med", "upr")]*results$pArea*results$areaTot
-results <- results[, .(lwr = sum(lwr), med = sum(med), upr = sum(upr)), 
-                   .(simid, ncycle, trec, variable, ppf)]
+```
 
-## get timber production
+```{r get-timber-production}
 dfvext <- subset(results, variable == "vextReal")
+## multiply by area and sum (or mean for omega0)
+dfvext <- dfvext[, .(lwr = sum(lwr*pArea*area),
+           med = sum(med*pArea*area), 
+           upr = sum(upr*pArea*area)), 
+       .(simid, ncycle, trec, ppf)]
 # add simulation info
 dfvext <- merge(dfvext, simulations, by = "simid")
+```
 
-## get timber stocks
+```{r get-timber-stocks}
 dfvolume <- subset(results, variable != "vextReal")
-dfvolume <- dcast(dfvolume, ncycle + trec + simid + ppf ~ variable, value.var = c("lwr", "med","upr"))
+dfvolume <-
+  dcast(dfvolume, value.var = c("lwr", "med", "upr"),
+    ncycle + trec + simid + ppf + area + pArea + site ~ variable
+  )
 dfvolume$lwr <- dfvolume$lwr_omega*dfvolume$lwr_volume
 dfvolume$med <- dfvolume$med_omega*dfvolume$med_volume
 dfvolume$upr <- dfvolume$upr_omega*dfvolume$upr_volume
+dfvolume <- dfvolume[, .(lwr = sum(lwr*pArea*area),
+           med = sum(med*pArea*area), 
+           upr = sum(upr*pArea*area)), 
+       .(simid, ncycle, trec, ppf)]
+dfvolume <- dfvolume[, c("ncycle", "trec", "simid", "ppf", "lwr", "med", "upr")]
+```
+
+```{r add-volume0}
+## add volume0
+## initial maturity and volume
+load("data/paramStan.Rdata")
+dfPred <- spatialPars(locations[, c("long", "lat")], uncert = TRUE)
+dfPred$dti <- sample(pars_dti, nrow(dfPred), replace = TRUE)
+
+dfPred[, matInit := stem_mort ^ (-lambda_ti) * (1 - dti)]
+dfPred[, vol0 := volume(matInit, aG_FORMIND, aM, bP, bM, theta)]
+
+dfvol0 <- dfPred[, .(variable = "volume", 
+                     lwr = quantile(vol0, 0.025), 
+                     med = quantile(vol0, 0.5), 
+                     upr = quantile(vol0, 0.975)), 
+                 .(long, lat)]
+dfvol0 <- merge(dfvol0, locations, by = c("long", "lat"))
+dfvol0 <- melt(dfvol0, measure.vars = c("pConcess", "pFlona"), 
+               variable.name = "ppf", value.name = "pArea", value.factor = TRUE)
+levels(dfvol0$ppf) <- c("current", "potential")
+dfvol0 <- subset(dfvol0, pArea > 0)
+dfvol0 <- dfvol0[, .(lwr = sum(lwr*pArea*area), 
+                     med = sum(med*pArea*area),
+                     upr = sum(upr*pArea*area),
+                     trec = 0, ncycle = 1), .(ppf)]
+
+dfres <- expand.grid(ppf = c("current", "potential"), simid = simulations$simid)
+dfres <- merge(dfres, simulations[, c("simid", "omega0")])
+dfres <- merge(dfvol0, dfres, by = "ppf")
+dfres[, `:=`(lwr = omega0*lwr, med = omega0*med, upr = omega0*upr)]
+dfvolume <- rbind(dfvolume, dfres[, colnames(dfvolume), with = FALSE])
+```
+
+```{r annualize-volume}
+dfvolume <- subset(dfvolume, trec != 1)
 dfvolume <- merge(dfvolume, simulations, by = "simid")
-
-# add all recovery years ###
-dfvolume <- dfvolume[, .(
-  lwr = seq(min(lwr), max(lwr), length.out=logCycle[1]), 
-  med = seq(min(med), max(med), length.out=logCycle[1]), 
-  upr = seq(min(upr), max(upr), length.out=logCycle[1]), 
-  trec = seq(1, logCycle[1])), 
-  .(ncycle, simid, ppf, omega0, logIntensity, logCycle, silvTreat)]
 dfvolume[, t := (ncycle-1)*logCycle + trec]
+
+# dfvolume <- dfvolume[, .(
+#   lwr = seq(min(lwr), max(lwr), length.out=logCycle[1]),
+#   med = seq(min(med), max(med), length.out=logCycle[1]),
+#   upr = seq(min(upr), max(upr), length.out=logCycle[1]),
+#   trec = seq(1, logCycle[1])),
+#   .(simid, ppf, omega0, logIntensity, logCycle, silvTreat)]
 ```
-
-```{r annualise-harvests}
-annualise <- function(X, period, X0) {
-  mat = matrix(X0 / period, ncol = length(X), nrow = period)
-  for (i in 1:period) {
-    mat[i, i:length(X)] = X[1:(length(X)-i+1)]/period
-  }
-  return(colSums(mat))
-}
-
-dfvolume_ann = dfvolume[order(t) , .(lwr = annualise(lwr, logCycle, first(lwr)),
-                                     med = annualise(med, logCycle, first(lwr)),
-                                     upr = annualise(upr, logCycle, first(lwr)), t),
-                        .(simid, ncycle, omega0, logIntensity, logCycle, silvTreat, ppf)]
-
-dfvext_ann <- dfvext[, .(lwr = rep(lwr/logCycle, each = logCycle[1]),
-                         med = rep(med/logCycle, each = logCycle[1]),
-                         upr = rep(upr/logCycle, each = logCycle[1]),
-                         t = (ncycle-1)*logCycle[1] + 1:logCycle[1]),
-                     .(simid, ncycle, omega0, logIntensity, logCycle, silvTreat, ppf)]
-dfvext_ann <- subset(dfvext_ann, t <= timeLength)
-```
-
-## Definition of sustainability
-
-Sustainability was defined in two ways (we use the median value of all runs): 
-
-(i) the total volume production must stay constant throughout the 200 years of simulation, with a 5% tolerance; 
-
-(ii) the total volume stocks must be at least 50% of their initial value at the end of the 200 years of simulation. 
-
 
 # Results
 
 ```{r sustainable-combinations}
 fin_prod <- lapply(outputs, function(df) { 
   df <- subset(df, variable == "vextReal")
+  ## add site information
   df <- merge(df, locations, by = "site")
-  df[, `:=`(medF = med*areaTot*pFlona, 
-            lwrF = lwr*areaTot*pFlona, 
-            uprF = upr*areaTot*pFlona, 
-            medC = med*areaTot*pConcess, 
-            lwrC = lwr*areaTot*pConcess, 
-            uprC = upr*areaTot*pConcess)]
-  ini <- colSums(df[ncycle==1, c("lwrF", "medF", "uprF", "lwrC", "medC", "uprC")])
-  fin <- colSums(df[ncycle==max(ncycle), c("lwrF", "medF", "uprF", "lwrC", "medC", "uprC")])
-  res <- data.table(rbind(ini, fin, fin/ini))
-  res$variable <- c("ini", "fin", "prop")
+  df <- melt(df, measure.vars = c("pConcess", "pFlona"), 
+             variable.name = "ppf", value.name = "pArea", 
+             value.factor = TRUE)
+  levels(df$ppf) <- c("current", "potential")
+  df <- subset(df, pArea > 0)
+  df[, `:=`(med = med*area*pArea, 
+            lwr = lwr*area*pArea, 
+            upr = upr*area*pArea)]
+  df <- df[ncycle %in% c(1, max(ncycle)), 
+           .(lwr = sum(lwr), med = sum(med), upr = sum(upr)),
+           .(ppf, variable = ncycle)]
+  df$variable <- rep(c("ini", "fin"), 2)
+  res <- rbind(df, 
+               df[, .(lwr = lwr[variable=="fin"]/lwr[variable=="ini"], 
+                      med = med[variable=="fin"]/med[variable=="ini"], 
+                      upr = upr[variable=="fin"]/upr[variable=="ini"], 
+                      variable = "prop"), .(ppf)])
   return(res)
 })
 fin_prod <- rbindlist(fin_prod, idcol = "simid")
 fin_prod$simid <- as.numeric(fin_prod$simid)
 fin_prod <- merge(fin_prod, simulations, by = "simid")
+## annualize
+fin_prod[variable != "prop", `:=`(lwr = lwr/logCycle, 
+                                  med = med/logCycle, 
+                                  upr = upr/logCycle)]
 
-sust_simus <- subset(fin_prod, variable == "prop" & medF >=0.95)
-## only 20 simulations are 'sustainable' ie they can produce the same amount of timber for at least 200 years
+## subset to have only sustainable 
+sust_simus <- subset(fin_prod, variable == "prop" & med >=0.95)
+
 table(sust_simus$logCycle, sust_simus$logIntensity)
 table(sust_simus$omega0)
 table(sust_simus$silvTreat)
+table(sust_simus$ppf)
 
-sust_prodF <- subset(fin_prod, simid %in% sust_simus$simid & variable == "ini") 
+sust_prodF <- subset(fin_prod, paste(ppf, simid) %in% paste(sust_simus$ppf, sust_simus$simid) & variable == "fin")
+sust_prodF[, `:=`(value = paste0(signif(med, 2)/1e6, " (", 
+                                 signif(lwr, 2)/1e6, "-",
+                                 signif(upr, 2)/1e6, ")"), 
+                  omega0 = paste0(omega0*100, "%"), 
+                  logrules = paste(logIntensity, "m3/ha -", logCycle, "yr"),
+                  silvTreat = c("no", "yes")[(silvTreat>0) + 1])]
+sust_prodF <- dcast(sust_prodF, omega0 + logrules + silvTreat ~ ppf)
+max1 <- sust_prodF[which.max(as.numeric(tstrsplit(current, " ")[[1]])), "current"]
+max2 <- sust_prodF[which.max(as.numeric(tstrsplit(potential, " ")[[1]])), "potential"]
 ```
 
-After 200 years, `r nrow(sust_simus)` (out of `r nrow(simulations)`) kept a constant total volume production. The maximum volume produced is `r signif(max(sust_prodF$medC)/1e6, 3)` Mm$^3$ in current forest concessions and `r signif(max(sust_prodF$medF)/1e6, 3)` Mm$^3$ in all potential concessions (i.e. all available public forests). 
+After 200 years, `r nrow(sust_simus)` (out of `r nrow(simulations)*2`) kept a constant total volume production. The maximum volume produced is `r max1` Mm$^3$ in current forest concessions and `r max2` Mm$^3$ in all potential concessions (i.e. all available public forests). 
 
+```{r sust-production, results = "asis"}
+kable(sust_prodF[, c("omega0", "logrules", "silvTreat", "current", "potential")], 
+      col.names = c("Commercial volume", "Logging rules", "Silv. treat.", 
+                    "Production in current concessions (Mm3/yr)", 
+                    "Production in potential concessions (Mm3/yr)"), 
+      caption = "Table 1: Results of all sustainable scenarios")
+```
+> add pharv ~ beta(xxx)
 
 ```{r timber-stocks-br, fig.height=6, fig.width = 10}
-dfvol_fig <- subset(dfvolume_ann, ppf == "potential" & simid %in% sust_simus$simid)
+dfvol_fig <- subset(dfvolume, ppf == "potential" & simid %in% sust_simus$simid)
 
 dfvol_fig$omega0 = factor(dfvol_fig$omega0)
 levels(dfvol_fig$omega0) = paste0("omega0 = ", as.numeric(levels(dfvol_fig$omega0))*100,"%")
@@ -385,8 +457,8 @@ ggplot(dfvol_fig, aes(x=t, y = med/1e6)) +
               aes(fill = logrules, 
                   ymin = lwr/1e6, 
                   ymax = upr/1e6)) + 
-  facet_grid(silvTreat ~ omega0, scales = "free")  + 
-  labs(x = "Time (yrs)", y = "Commercial volume (Mm3/yr)") +
+  facet_grid(silvTreat ~ omega0)  + 
+  labs(x = "Time (yrs)", y = "Commercial volume (Mm3)") +
   theme_bw() + 
   theme(legend.position = "top") 
 ```
