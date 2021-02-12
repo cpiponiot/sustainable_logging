@@ -8,11 +8,12 @@ all_flor <- sp::SpatialPolygons(list())
 
 for (sh in files) {
   ufs <- rgdal::readOGR(dsn = "data_sfb/public-forests", layer = sh)
+  ufs <- spTransform(ufs, CRS("+proj=longlat +datum=WGS84"))
   if (any(ufs$protecao == "USO SUSTENTAVEL" & 
-          grepl("Amaz", ufs$bioma) & 
+          grepl("Amaz", ufs$bioma) &
           ufs$comunitari == "NAO")) {
     flor <- ufs[ufs$protecao == "USO SUSTENTAVEL" & 
-                  grepl("Amaz", ufs$bioma) & 
+                  grepl("Amaz", ufs$bioma) &
                   ufs$comunitari == "NAO",]
     all_flor <- rgeos::gUnion(flor, all_flor)
   }
@@ -31,6 +32,8 @@ all_conc <- sp::SpatialPolygons(list())
 
 for (i in seq_len(length(files))) {
   conc <- rgdal::readOGR(dsn = names(files)[i], layer = files[i])
+  # change CRS
+  conc <- spTransform(conc, CRS("+proj=longlat +datum=WGS84"))
   all_conc <- rgeos::gUnion(conc, all_conc)
 }
 
