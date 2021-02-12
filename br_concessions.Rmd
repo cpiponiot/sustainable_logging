@@ -46,7 +46,7 @@ First, this paper aims to assess which logging regimes (logging intensity and ro
 
 Our study focuses on the Brazilian forest concessions. These concessions are located in public forests and currently cover an area of 1.55 Mha in the Brazilian Amazon, of which 1.05 Mha are federal concessions, managed by the SFB, and 0.5 Mha are managed by state-level agencies [@SFB2019]. We retrieved the map of federal concessions and the map of all public forests from the Brazilian Forest Service website [@SFB2020;@SFB2019a]. We defined the area of all potential concessions as the area of all public forests that (i) are in the Brazilian Amazon biome, (ii) are designated for sustainable use, and (iii) are not community forests, indigenous territories or military areas [as defined in @SFB2019, p. 112].  
 
-```{r map-brazil-concess}
+```{r get-prop-concess}
 if (!file.exists("data/pconcessions.Rdata")) {
   ## current concessions ####
   concessions <- rgdal::readOGR(dsn = "data_sfb/final", layer = "BRconc")
@@ -77,6 +77,18 @@ if (!file.exists("data/pconcessions.Rdata")) {
   save(pconcessions, file = "data/pconcessions.Rdata")
 } else load("data/pconcessions.Rdata")
 ```
+
+```{r map-brazil-concess, fig.height = 5, fig.width = 11}
+concessions <- rgdal::readOGR(dsn = "data_sfb/final", layer = "BRconc")
+flopub <- rgdal::readOGR(dsn = "data_sfb/final", layer = "BRflopub")
+map.world <- rgdal::readOGR("D:/Mes Donnees/maps/borders/South_America", "South_America")
+nbrasil.map <- raster::crop(map.world, y = raster::extent(-74, -44, -11,5))
+plot(nbrasil.map, col = "#00000005")
+plot(flopub, col = 4, border = NA, add = TRUE)
+plot(concessions, col = 2, border = NA, add = TRUE)
+legend("topright", fill=c(2,4), legend = c("Current concessions", "Potential concessions"))
+``` 
+
 
 ```{r get-area-pixels}
 raster_conc <- expand.grid(long = seq(min(pconcessions$long), max(pconcessions$long)), 
@@ -113,29 +125,72 @@ Other parameters of the VDDE model are spatially defined at a 1 degree resolutio
 
 Each logging cycle is composed of two steps: (i) the logging itself is a function of the logging intensity and the characteristics of the forest; and (ii) the post-logging volume recovery phase is a function of the logging cycle length, and of the characteristics of the forest. The logging lowers the total volume and the proportion of commercial volume. The total volume and proportion of commercial species then increase during the recovery phase [@Piponiot2019a]. These two steps are sequentially repeated to simulate 200 years of logging cycles. 
 
+Errors are propagated by drawing all parameter values from their calibrated distribution [from @Piponiot2019a], and simulating logging cycles with these parameter values. This process is repeated 100 times and summary statistics (median and 95% credibility interval) are calculated at each time step.  
+
 ## Testing scenarios
 
-In this study we tested 27 different scenarios by using all combinations of the following inputs: (i) initial proportion of commercial volume: 20% (highly selective), 50% (intermediate) or 90% (not selective); (ii) logging intensity: 10 m$^3$.ha$^{-1}$ (low), 20 m$^3$.ha$^{-1}$ (intermediate) or 30 m$^3$.ha$^{-1}$ (high); (iii) length of cutting cycles: 20 years (short), 35 years (intermediate) or 60 years (long). 
-The model was applied using two different areas: (a) the area of all current federal concessions in the Brazilian Amazon, and (b) the area of all potential concessions, as defined previously. 
+In this study we tested 54 different scenarios by using all combinations of the following inputs: (i) initial proportion of commercial volume: 20% (highly selective), 50% (intermediate) or 90% (not selective); (ii) logging intensity: 10 m$^3$.ha$^{-1}$ (low), 20 m$^3$.ha$^{-1}$ (intermediate) or 30 m$^3$.ha$^{-1}$ (high); (iii) length of cutting cycles: 20 years (short), 35 years (intermediate) or 60 years (long); (iv) concessions area: the area of current federal concessions, or the area of all potential concessions (see section: "Study areas"). 
 
-We then assessed the sustainability of scenarios based on their annual timber production: a scenario is sustainable if the median timber production stays constant during the 200 years of simulation (with a 5% tolerance). When timber production decreases during the 200 years of simulation due to timber stocks depletion, the scenario is not considered sustainable. 
+For each scenario we simulated 1000 years of logging cycles, and determined the duration of sustained production $tsust$, i.e. the time when timber stocks not sufficient to maintain a constant timber production (Figure \@ref(fig:illust-sust-log)).
+<!-- , with a 5% tolerance. -->
+<!-- To do so, we assessed the timber extraction over all logged forests (either current or potential concessions) at each logging cycle; $tsust$ corresponds to the time when the median extracted timber (over all 100 iterations) is lower or equal to 95% of the target logging intensity.  -->
+
+```{r illust-sust-log, fig.height = 4, fig.width = 8}
+logCyc = 60
+logInt = 10
+
+dfsimu = simulateLogging(
+  timeLength = 1000,
+  logIntensity = logInt,
+  logCycle = logCyc,
+  omega0 = 0.5,
+  uncertainties = FALSE,
+  longitude = -60,
+  latitude = 0
+)
+dfvol = dcast(subset(dfsimu, variable!="vextReal"), ncycle + trec ~ variable)
+dfvol$vcom = dfvol$volume*dfvol$omega
+dfcycle = dcast(dfvol, ncycle ~ trec, value.var = "vcom")
+colnames(dfcycle) <- c("ncycle", "pl", "pr")
+dfcycle[, pl := c(pl[-1], NA)]
+dfvext = subset(dfsimu, variable=="vextReal")
+tsust = max(dfvext[value==logInt, "ncycle"])*logCyc
+
+ggplot() +
+  geom_vline(xintercept = tsust, lty = 2) + 
+  geom_line(data = dfvol, aes(x = trec+logCyc*(ncycle-1), y = vcom)) + 
+  geom_segment(data = dfcycle, 
+               aes(x = logCyc*ncycle, xend = logCyc*ncycle+1, 
+                   yend = pl, y = pr), col = 4, lwd = 1) + 
+  geom_segment(data = subset(dfcycle, ncycle >= max(dfvext[value==logInt, "ncycle"])), 
+               aes(x = logCyc*ncycle, xend = logCyc*ncycle+1, 
+                   yend = pl, y = pr), col = 2, lwd = 1) + 
+  annotate(geom = "segment", x = 0, xend = tsust, y = 54, yend = 54,
+           arrow = arrow(length = unit(0.2, "cm"), ends = "both")) +
+  annotate(geom = "text", x = c(500, 800, 350), y = c(25, 8, 52), col = c(4,2, 1),
+           label = c("Sustained\nproduction", "Timber depletion", 
+                     "Duration of sustained production (tsust)")) +
+  labs(x = "Time (yr)", y = "Commercial volume") + 
+  theme_classic() + 
+  scale_x_continuous(expand = c(0, 0)) + 
+  scale_y_continuous(expand = c(0, 0)) +
+  expand_limits(y = c(0,55))
+``` 
 
 ```{r define-simulations}
 timeLength <- 200
 omega0 <- c(0.2, 0.5, 0.9)
 logIntensity <- (1:3)*10
 logCycle <- c(20, 35, 60)
-silvTreat <- c(0, 0.5)
 simulations <- expand.grid(omega0 = omega0, 
                            logIntensity = logIntensity, 
-                           logCycle = logCycle, 
-                           silvTreat = silvTreat)
+                           logCycle = logCycle)
 simulations$simid <- 1:nrow(simulations)
 ```
 
 ```{r run-simulations}
 if (!dir.exists("cache/simulations_concessionsBR/"))
-  dir.create("cache/simulations_concessionsBR/")  
+  dir.create("cache/simulations_concessionsBR/")
 
 all_i = 1:nrow(simulations)
 del_i = as.numeric(gsub("recov|\\.Rdata", "", list.files("cache/simulations_concessionsBR/")))
@@ -143,32 +198,30 @@ missing_simus <- all_i[!all_i%in%del_i]
 
 if (length(missing_simus) > 0) {
   source("R/simulateLogging.R")
-  
+
   # Calculate the number of cores
   no_cores <- detectCores() - 2
   # Initiate cluster
   cl <- makeCluster(no_cores)
   clusterEvalQ(cl, library(data.table))
   clusterExport(cl, varlist = c("simulateLogging", "simulations", "timeLength", "locations", "rtruncnorm"))
-  
+
   recovCycles <- parLapply(cl, missing_simus, function(j) {
     recov <- simulateLogging(
-      timeLength = timeLength,
+      timeLength = 1000,
       logIntensity = simulations$logIntensity[j],
-      logCycle = simulations$logCycle[j], 
+      logCycle = simulations$logCycle[j],
       omega0 = simulations$omega0[j],
-      longitude = locations$long, 
+      longitude = locations$long,
       latitude = locations$lat,
-      silv = c(simulations$silvTreat[j], 20, 0.25),
-      silv_upr = c(1, 50, 1),
       uncertainties = TRUE, keepAll = FALSE
     )
     save(recov, file = paste0("cache/simulations_concessionsBR/recov", j, ".Rdata"))
     return(recov)
   })
-  
+
   stopCluster(cl)
-} 
+}
 ```
 
 ```{r prepare-results}
@@ -193,9 +246,9 @@ results <- subset(results, pArea > 0)
 dfvext <- subset(results, variable == "vextReal")
 ## multiply by area and sum (or mean for omega0)
 dfvext <- dfvext[, .(lwr = sum(lwr*pArea*area),
-           med = sum(med*pArea*area), 
-           upr = sum(upr*pArea*area)), 
-       .(simid, ncycle, trec, ppf)]
+                     med = sum(med*pArea*area), 
+                     upr = sum(upr*pArea*area)), 
+                 .(simid, ncycle, trec, ppf)]
 # add simulation info
 dfvext <- merge(dfvext, simulations, by = "simid")
 ```
@@ -204,15 +257,15 @@ dfvext <- merge(dfvext, simulations, by = "simid")
 dfvolume <- subset(results, variable != "vextReal")
 dfvolume <-
   dcast(dfvolume, value.var = c("lwr", "med", "upr"),
-    ncycle + trec + simid + ppf + area + pArea + site ~ variable
+        ncycle + trec + simid + ppf + area + pArea + site ~ variable
   )
 dfvolume$lwr <- dfvolume$lwr_omega*dfvolume$lwr_volume
 dfvolume$med <- dfvolume$med_omega*dfvolume$med_volume
 dfvolume$upr <- dfvolume$upr_omega*dfvolume$upr_volume
 dfvolume <- dfvolume[, .(lwr = sum(lwr*pArea*area),
-           med = sum(med*pArea*area), 
-           upr = sum(upr*pArea*area)), 
-       .(simid, ncycle, trec, ppf)]
+                         med = sum(med*pArea*area), 
+                         upr = sum(upr*pArea*area)), 
+                     .(simid, ncycle, trec, ppf)]
 dfvolume <- dfvolume[, c("ncycle", "trec", "simid", "ppf", "lwr", "med", "upr")]
 ```
 
@@ -252,19 +305,14 @@ dfvolume <- rbind(dfvolume, dfres[, colnames(dfvolume), with = FALSE])
 dfvolume <- subset(dfvolume, trec != 1)
 dfvolume <- merge(dfvolume, simulations, by = "simid")
 dfvolume[, t := (ncycle-1)*logCycle + trec]
-
-# dfvolume <- dfvolume[, .(
-#   lwr = seq(min(lwr), max(lwr), length.out=logCycle[1]),
-#   med = seq(min(med), max(med), length.out=logCycle[1]),
-#   upr = seq(min(upr), max(upr), length.out=logCycle[1]),
-#   trec = seq(1, logCycle[1])),
-#   .(simid, ppf, omega0, logIntensity, logCycle, silvTreat)]
 ```
+
+
 
 # Results
 
-```{r sustainable-combinations}
-fin_prod <- lapply(outputs, function(df) { 
+```{r calc-tsust}
+dftsust <- lapply(outputs, function(df) { 
   df <- subset(df, variable == "vextReal")
   ## add site information
   df <- merge(df, locations, by = "site")
@@ -276,62 +324,85 @@ fin_prod <- lapply(outputs, function(df) {
   df[, `:=`(med = med*area*pArea, 
             lwr = lwr*area*pArea, 
             upr = upr*area*pArea)]
-  df <- df[ncycle %in% c(1, max(ncycle)), 
-           .(lwr = sum(lwr), med = sum(med), upr = sum(upr)),
-           .(ppf, variable = ncycle)]
-  df$variable <- rep(c("ini", "fin"), 2)
-  res <- rbind(df, 
-               df[, .(lwr = lwr[variable=="fin"]/lwr[variable=="ini"], 
-                      med = med[variable=="fin"]/med[variable=="ini"], 
-                      upr = upr[variable=="fin"]/upr[variable=="ini"], 
-                      variable = "prop"), .(ppf)])
+  df <- df[, .(lwr = sum(lwr), med = sum(med), upr = sum(upr)),
+           .(ppf, ncycle)]
+  ini <- df[ncycle==1, -"ncycle"]
+  ini$variable <- "prodi"
+  res <- rbind(ini, df[, .(lwr = max(ncycle[lwr>=0.95*lwr[ncycle==1]]), 
+                           med = max(ncycle[med>=0.95*med[ncycle==1]]), 
+                           upr = max(ncycle[upr>=0.95*upr[ncycle==1]]), 
+                           variable="tsust"), .(ppf)])
   return(res)
 })
-fin_prod <- rbindlist(fin_prod, idcol = "simid")
-fin_prod$simid <- as.numeric(fin_prod$simid)
-fin_prod <- merge(fin_prod, simulations, by = "simid")
-## annualize
-fin_prod[variable != "prop", `:=`(lwr = lwr/logCycle, 
-                                  med = med/logCycle, 
-                                  upr = upr/logCycle)]
-
-## subset to have only sustainable 
-sust_simus <- subset(fin_prod, variable == "prop" & med >=0.95 & silvTreat == 0)
-
-table(sust_simus$logCycle, sust_simus$logIntensity)
-table(sust_simus$omega0)
-table(sust_simus$silvTreat)
-table(sust_simus$ppf)
-
-sust_prodF <- subset(fin_prod, paste(ppf, simid) %in% paste(sust_simus$ppf, sust_simus$simid) & variable == "fin")
-sust_prodF[, `:=`(value = paste0(signif(med, 2)/1e6, " (", 
-                                 signif(lwr, 2)/1e6, "-",
-                                 signif(upr, 2)/1e6, ")"), 
-                  omega0 = paste0(omega0*100, "%"), 
-                  silvTreat = c("no", "yes")[(silvTreat>0) + 1])]
-sust_prodF <- dcast(sust_prodF, omega0 + logIntensity + logCycle + silvTreat ~ ppf)
-sust_prodF90 <- subset(sust_prodF, omega0 == "90%")
-max1 <- sust_prodF90[which.max(as.numeric(tstrsplit(current, " ")[[1]])), "current"]
-max2 <- sust_prodF90[which.max(as.numeric(tstrsplit(potential, " ")[[1]])), "potential"]
-sust_prodF50 <- subset(sust_prodF, omega0 == "50%")
-max3 <- sust_prodF50[which.max(as.numeric(tstrsplit(current, " ")[[1]])), "current"]
-max3b <- paste0(tstrsplit(max3, " ")[[1]], " (95% confidence interval: ", tstrsplit(max3, "\\(")[[2]])
-max4 <- sust_prodF50[which.max(as.numeric(tstrsplit(potential, " ")[[1]])), "potential"]
+dftsust <- rbindlist(dftsust, idcol = "simid")
+dftsust$simid <- as.numeric(dftsust$simid)
+dftsust <- merge(dftsust, simulations, by = "simid")
+dftsust[variable == "tsust", `:=`(lwr = lwr*logCycle, 
+               med = med*logCycle, 
+               upr = upr*logCycle)]
+dftsust = dcast(dftsust, omega0 + logIntensity + logCycle + ppf ~ variable, 
+                value.var = c("lwr", "med", "upr"))
 ```
 
-After 200 years, `r nrow(sust_simus)` scenarios (out of 54) kept a constant total volume production. When 50% of the initial volume is composed of commercial species, the maximum volume produced is `r max3b` Mm$^3$ in current forest concessions and `r max4` Mm$^3$ in all potential concessions (i.e. all available public forests; Table \@ref(tab:sust-production)). 
-When 90% of the initial volume is composed of commercial species, `r max1` Mm$^3$ in current forest concessions and `r max2` Mm$^3$ in all potential concessions. 
-
-```{r sust-production, results = "asis"}
-kable(sust_prodF[, c("omega0", "logIntensity", "logCycle", "current", "potential")], 
-      col.names = c("Commercial volume", "Log. int. (m3/ha)", "Log. cycle (yr)", 
-                    "Production in current concessions (Mm3/yr)", 
-                    "Production in potential concessions (Mm3/yr)"), 
-      caption = "Results of all sustainable scenarios. Sustainable scenarios are defined as the combination of input variables that result in a constant production of timber for the 200-yr simulations. The first 3 columns correspond to the input variables: the proportion of commercial volume (%); logging intensity (m$^3$.ha${^-1}$) and logging cycle length (yr). The 2 last columns correspond to the annual production of timber (Mm$^3$.yr$^{-1}$) under those scenarios, if current concessions or all potential concessions are used, respectively. NA means that the scenario was not sustainable under that definition of concession area (current or potential).")
+```{r tsust-vs-prodi, fig.width = 10, fig.height = 6, fig.caption= "Tradeoff between timber production and sustainability. "}
+dftsust$ppf = factor(dftsust$ppf)
+levels(dftsust$ppf) = c("Current concessions", "Potential concessions")
+ggplot(dftsust, aes(x=med_tsust, y = med_prodi/1e6, 
+                   xmin=lwr_tsust, ymin = lwr_prodi/1e6,
+                   xmax=upr_tsust, ymax = upr_prodi/1e6, 
+                   shape = paste0(omega0*100, "%"), 
+                   color = paste(logIntensity, "m3/ha -", logCycle, "yr"))) +
+  geom_pointrange() +
+  geom_errorbarh() +
+  facet_wrap(~ppf, scales = "free") +
+  labs(x = "Duration of sustained production (yr)", 
+       y = "Total production (Mm3/yr)", 
+       shape = "Initial proportion of\ncommercial volume", 
+       color = "Logging rules") +
+  theme_classic() +
+  theme(legend.position = "top") +
+  guides(color = guide_legend(nrow=2)) 
 ```
+
+```{r temp}
+# ## subset to have only sustainable 
+# sust_simus <- subset(fin_prod, variable == "prop" & med >=0.95 & silvTreat == 0)
+# 
+# table(sust_simus$logCycle, sust_simus$logIntensity)
+# table(sust_simus$omega0)
+# table(sust_simus$silvTreat)
+# table(sust_simus$ppf)
+# 
+# sust_prodF <- subset(fin_prod, paste(ppf, simid) %in% paste(sust_simus$ppf, sust_simus$simid) & variable == "fin")
+# sust_prodF[, `:=`(value = paste0(signif(med, 2)/1e6, " (", 
+#                                  signif(lwr, 2)/1e6, "-",
+#                                  signif(upr, 2)/1e6, ")"), 
+#                   omega0 = paste0(omega0*100, "%"), 
+#                   silvTreat = c("no", "yes")[(silvTreat>0) + 1])]
+# sust_prodF <- dcast(sust_prodF, omega0 + logIntensity + logCycle + silvTreat ~ ppf)
+# sust_prodF90 <- subset(sust_prodF, omega0 == "90%")
+# max1 <- sust_prodF90[which.max(as.numeric(tstrsplit(current, " ")[[1]])), "current"]
+# max2 <- sust_prodF90[which.max(as.numeric(tstrsplit(potential, " ")[[1]])), "potential"]
+# sust_prodF50 <- subset(sust_prodF, omega0 == "50%")
+# max3 <- sust_prodF50[which.max(as.numeric(tstrsplit(current, " ")[[1]])), "current"]
+# max3b <- paste0(tstrsplit(max3, " ")[[1]], " (95% confidence interval: ", tstrsplit(max3, "\\(")[[2]])
+# max4 <- sust_prodF50[which.max(as.numeric(tstrsplit(potential, " ")[[1]])), "potential"]
+```
+
+<!-- After 200 years, `r nrow(sust_simus)` scenarios (out of 54) kept a constant total volume production. When 50% of the initial volume is composed of commercial species, the maximum volume produced is `r max3b` Mm$^3$ in current forest concessions and `r max4` Mm$^3$ in all potential concessions (i.e. all available public forests; Table \@ref(tab:sust-production)).  -->
+<!-- When 90% of the initial volume is composed of commercial species, `r max1` Mm$^3$ in current forest concessions and `r max2` Mm$^3$ in all potential concessions.  -->
+
+
+<!-- ```{r sust-production, results = "asis"} -->
+<!-- kable(sust_prodF[, c("omega0", "logIntensity", "logCycle", "current", "potential")],  -->
+<!--       col.names = c("Commercial volume", "Log. int. (m3/ha)", "Log. cycle (yr)",  -->
+<!--                     "Production in current concessions (Mm3/yr)",  -->
+<!--                     "Production in potential concessions (Mm3/yr)"),  -->
+<!--       caption = "Results of all sustainable scenarios. Sustainable scenarios are defined as the combination of input variables that result in a constant production of timber for the 200-yr simulations. The first 3 columns correspond to the input variables: the proportion of commercial volume (%); logging intensity (m$^3$.ha${^-1}$) and logging cycle length (yr). The 2 last columns correspond to the annual production of timber (Mm$^3$.yr$^{-1}$) under those scenarios, if current concessions or all potential concessions are used, respectively. NA means that the scenario was not sustainable under that definition of concession area (current or potential).") -->
+<!-- ``` -->
 
 ```{r timber-stocks-br, fig.height=4, fig.width = 10, fig.cap="Commercial volume stocks in all potential concession areas for all sustainable scenarios."}
-dfvol_fig <- subset(dfvolume, ppf == "potential" & simid %in% sust_simus$simid)
+dfvol_fig <- subset(dfvolume, ppf == "potential")
 
 dfvol_fig$omega0 = factor(dfvol_fig$omega0)
 levels(dfvol_fig$omega0) = paste0("omega0 = ", as.numeric(levels(dfvol_fig$omega0))*100,"%")
