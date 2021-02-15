@@ -131,11 +131,11 @@ Errors are propagated by drawing all parameter values from their calibrated dist
 
 In this study we tested 54 different scenarios by using all combinations of the following inputs: (i) initial proportion of commercial volume: 20% (highly selective), 50% (intermediate) or 90% (not selective); (ii) logging intensity: 10 m$^3$.ha$^{-1}$ (low), 20 m$^3$.ha$^{-1}$ (intermediate) or 30 m$^3$.ha$^{-1}$ (high); (iii) length of cutting cycles: 20 years (short), 35 years (intermediate) or 60 years (long); (iv) concessions area: the area of current federal concessions, or the area of all potential concessions (see section: "Study areas"). 
 
-For each scenario we simulated 1000 years of logging cycles, and determined the duration of sustained production $tsust$, i.e. the time when timber stocks not sufficient to maintain a constant timber production (Figure \@ref(fig:illust-sust-log)).
+For each scenario we simulated 1000 years of logging cycles, and determined the duration of sustained production $tsust$, i.e. the time when timber stocks are not sufficient to maintain a constant timber production (Figure \@ref(fig:illust-sust-log)).
 <!-- , with a 5% tolerance. -->
 <!-- To do so, we assessed the timber extraction over all logged forests (either current or potential concessions) at each logging cycle; $tsust$ corresponds to the time when the median extracted timber (over all 100 iterations) is lower or equal to 95% of the target logging intensity.  -->
 
-```{r illust-sust-log, fig.height = 4, fig.width = 8}
+```{r illust-sust-log, fig.height = 4, fig.width = 8, fig.cap = "Illustration of the the duration of sustained production. The x-axis represents the time since the first logging event, and the y-axis represents the evolution of commercial volume as simulated by the model with a logging intensity of 10 m$^3$.ha$^{-1}$ and a logging cycle of 60 years. At each logging event, the commercial volume decreases because of timber exctraction (blue segments). If the logging cycles are not long enough to recover its pre-logging value, the commercial volume decreases until it is not sufficient to maintain a constant production (red segments). The time taken to reach this limit is the duration of sustained production."}
 logCyc = 60
 logInt = 10
 
@@ -198,14 +198,14 @@ missing_simus <- all_i[!all_i%in%del_i]
 
 if (length(missing_simus) > 0) {
   source("R/simulateLogging.R")
-
+  
   # Calculate the number of cores
   no_cores <- detectCores() - 2
   # Initiate cluster
   cl <- makeCluster(no_cores)
   clusterEvalQ(cl, library(data.table))
   clusterExport(cl, varlist = c("simulateLogging", "simulations", "timeLength", "locations", "rtruncnorm"))
-
+  
   recovCycles <- parLapply(cl, missing_simus, function(j) {
     recov <- simulateLogging(
       timeLength = 1000,
@@ -219,7 +219,7 @@ if (length(missing_simus) > 0) {
     save(recov, file = paste0("cache/simulations_concessionsBR/recov", j, ".Rdata"))
     return(recov)
   })
-
+  
   stopCluster(cl)
 }
 ```
@@ -337,31 +337,66 @@ dftsust <- lapply(outputs, function(df) {
 dftsust <- rbindlist(dftsust, idcol = "simid")
 dftsust$simid <- as.numeric(dftsust$simid)
 dftsust <- merge(dftsust, simulations, by = "simid")
+dftsust[variable == "prodi", `:=`(lwr = lwr/logCycle, 
+                                  med = med/logCycle, 
+                                  upr = upr/logCycle)]
 dftsust[variable == "tsust", `:=`(lwr = lwr*logCycle, 
-               med = med*logCycle, 
-               upr = upr*logCycle)]
+                                  med = med*logCycle, 
+                                  upr = upr*logCycle)]
 dftsust = dcast(dftsust, omega0 + logIntensity + logCycle + ppf ~ variable, 
                 value.var = c("lwr", "med", "upr"))
 ```
 
-```{r tsust-vs-prodi, fig.width = 10, fig.height = 6, fig.caption= "Tradeoff between timber production and sustainability. "}
+```{r tsust-vs-prodi, fig.width = 10, fig.height = 8, fig.cap = "Tradeoff between timber production and sustainability. The x-axis is the annual timber production under each scenario, and in all areas considered in the scenario (left panels: current concessions; right panels: potential concessions). The y-axis is the duration of sustained production in each scenario, in years. The points are the median value over all simulations for each scenario; the vertical and horizontal error bars are the 95% credibility intervals. Colors represent logging rules (3 logging intensities x 3 logging cycle lengths) and the 3 values of initial proprtion of commercial volume (omega_0) are represented by different panels, in increasing order from top to bottom. The target production of timber is 11 Mm$^3$.yr$^{-1}$, corresponding to the current timber production in Brazilian Amazonian forests. Only a few scenarios in the right panels (all potential concessions) are above this target, and all of them have a median duration of sustained production lower than 200 years."}
+## legend
+palette <- function (name, indices = c(7,5,3)) {
+  RColorBrewer::brewer.pal(9, name)[indices]
+}
+colours <- c(as.vector(sapply(c("Blues", "Purples","Reds"), palette)))
+colour_palette <- c("LS"= colours[1], "LM"=colours[2], "LL"=colours[3],
+                    "MS"=colours[4], "MM"=colours[5], "ML"=colours[6],
+                    "HS"=colours[7], "HM"=colours[8], "HL"=colours[9])
+df_rules <- data.table(logRules = c("LS","LM","LL","MS","MM","ML","HS","HM","HL"),
+                       logIntensity = rep(10*1:3, each=3),
+                       logCycle = rep(c(20,35,60), 3))
+rules_legend <- ggplot(df_rules, aes(x=logIntensity, y=as.factor(logCycle),
+                                    fill=logRules, label=logRules)) + 
+  geom_raster() + scale_fill_manual(values = colour_palette) + 
+  # geom_text(size=5) + 
+  labs(x =expression("Logging intensity ("*m^3*ha^{-1}*")"), y = "Logging cycle (yrs)") + 
+  theme(legend.position="none", aspect.ratio=1, 
+        panel.background = element_blank(), 
+        plot.margin = margin(2, 2, 2, 2, "cm"),
+        text = element_text(size=10), 
+        axis.title.y = element_text(margin = margin(t = 0, r = 20, b = 0, l = 0)),
+        axis.title.x = element_text(margin = margin(t = 15, r = 0, b = 0, l = 0))) 
+
+## plot
+dftsust <- merge(dftsust, df_rules, by = c("logIntensity", "logCycle"))
 dftsust$ppf = factor(dftsust$ppf)
 levels(dftsust$ppf) = c("Current concessions", "Potential concessions")
-ggplot(dftsust, aes(x=med_tsust, y = med_prodi/1e6, 
-                   xmin=lwr_tsust, ymin = lwr_prodi/1e6,
-                   xmax=upr_tsust, ymax = upr_prodi/1e6, 
-                   shape = paste0(omega0*100, "%"), 
-                   color = paste(logIntensity, "m3/ha -", logCycle, "yr"))) +
-  geom_pointrange() +
-  geom_errorbarh() +
-  facet_wrap(~ppf, scales = "free") +
-  labs(x = "Duration of sustained production (yr)", 
-       y = "Total production (Mm3/yr)", 
-       shape = "Initial proportion of\ncommercial volume", 
-       color = "Logging rules") +
-  theme_classic() +
-  theme(legend.position = "top") +
-  guides(color = guide_legend(nrow=2)) 
+dftsust$omega0 = paste0("omega0 = ", dftsust$omega0*100, "%")
+## objective production line only on 2nd facet
+add_objProd <- data.frame(ppf="Potential concessions", pos = c(125, 700, 700),
+                          omega0 = unique(dftsust$omega0),
+                          obj = 11, text = "Target production")
+
+graph <- ggplot(dftsust, aes(y=med_tsust, x = med_prodi/1e6)) +
+  geom_vline(data = add_objProd, aes(xintercept = obj), lty=2) +
+  geom_text(data = add_objProd, aes(x = obj+1, y = pos, label = text), angle = 90) +
+  # ggrepel::geom_text_repel(aes(label = logRules), col = 1) +
+  geom_pointrange(aes(ymin=lwr_tsust, ymax=upr_tsust, color = logRules)) +
+  geom_errorbarh(height = 0, aes(xmin = lwr_prodi/1e6, xmax = upr_prodi/1e6, color = logRules)) +
+  facet_grid(omega0 ~ ppf, scales = "free") +
+  labs(x = bquote("Annual timber production (M"* m^3*.*yr^-1*")"), 
+       y = "Duration of sustained production (yrs)", 
+       color = "Logging rules") + 
+  scale_color_manual(values = colour_palette) +
+  theme_bw() +
+  theme(legend.position = "none") +
+  guides(color = guide_legend(nrow=2))
+
+ggpubr::ggarrange(graph, rules_legend, widths = c(9,4))
 ```
 
 ```{r temp}
@@ -387,10 +422,10 @@ ggplot(dftsust, aes(x=med_tsust, y = med_prodi/1e6,
 # max3 <- sust_prodF50[which.max(as.numeric(tstrsplit(current, " ")[[1]])), "current"]
 # max3b <- paste0(tstrsplit(max3, " ")[[1]], " (95% confidence interval: ", tstrsplit(max3, "\\(")[[2]])
 # max4 <- sust_prodF50[which.max(as.numeric(tstrsplit(potential, " ")[[1]])), "potential"]
-```
 
-<!-- After 200 years, `r nrow(sust_simus)` scenarios (out of 54) kept a constant total volume production. When 50% of the initial volume is composed of commercial species, the maximum volume produced is `r max3b` Mm$^3$ in current forest concessions and `r max4` Mm$^3$ in all potential concessions (i.e. all available public forests; Table \@ref(tab:sust-production)).  -->
-<!-- When 90% of the initial volume is composed of commercial species, `r max1` Mm$^3$ in current forest concessions and `r max2` Mm$^3$ in all potential concessions.  -->
+# After 200 years, `r nrow(sust_simus)` scenarios (out of 54) kept a constant total volume production. When 50% of the initial volume is composed of commercial species, the maximum volume produced is `r max3b` Mm$^3$ in current forest concessions and `r max4` Mm$^3$ in all potential concessions (i.e. all available public forests; Table \@ref(tab:sust-production)).
+# When 90% of the initial volume is composed of commercial species, `r max1` Mm$^3$ in current forest concessions and `r max2` Mm$^3$ in all potential concessions.
+```
 
 
 <!-- ```{r sust-production, results = "asis"} -->
@@ -401,27 +436,24 @@ ggplot(dftsust, aes(x=med_tsust, y = med_prodi/1e6,
 <!--       caption = "Results of all sustainable scenarios. Sustainable scenarios are defined as the combination of input variables that result in a constant production of timber for the 200-yr simulations. The first 3 columns correspond to the input variables: the proportion of commercial volume (%); logging intensity (m$^3$.ha${^-1}$) and logging cycle length (yr). The 2 last columns correspond to the annual production of timber (Mm$^3$.yr$^{-1}$) under those scenarios, if current concessions or all potential concessions are used, respectively. NA means that the scenario was not sustainable under that definition of concession area (current or potential).") -->
 <!-- ``` -->
 
-```{r timber-stocks-br, fig.height=4, fig.width = 10, fig.cap="Commercial volume stocks in all potential concession areas for all sustainable scenarios."}
-dfvol_fig <- subset(dfvolume, ppf == "potential")
-
-dfvol_fig$omega0 = factor(dfvol_fig$omega0)
-levels(dfvol_fig$omega0) = paste0("omega0 = ", as.numeric(levels(dfvol_fig$omega0))*100,"%")
-
-dfvol_fig$silvTreat = factor(dfvol_fig$silvTreat)
-levels(dfvol_fig$silvTreat) = paste0("Silv. effect = ", as.numeric(levels(dfvol_fig$silvTreat))*100,"%")
-
-dfvol_fig$logrules <- paste("Cycle:", dfvol_fig$logCycle, "yrs; Intensity:", dfvol_fig$logIntensity, "m3/ha")
-
-ggplot(dfvol_fig, aes(x=t, y = med/1e6)) + 
-  geom_line(aes(colour = logrules)) +
-  geom_ribbon(alpha = 0.2, colour = NA, 
-              aes(fill = logrules, 
-                  ymin = lwr/1e6, 
-                  ymax = upr/1e6)) + 
-  facet_grid( ~ omega0)  + 
-  labs(x = "Time (yrs)", y = "Commercial volume (Mm3)") +
-  theme_bw() + 
-  theme(legend.position = "top") 
+```{r timber-stocks-br, fig.height=6, fig.width = 10, fig.cap="Commercial volume stocks in all potential concession areas for all sustainable scenarios."}
+# dfvol_fig <- copy(dfvolume)
+# 
+# dfvol_fig$omega0 = factor(dfvol_fig$omega0)
+# levels(dfvol_fig$omega0) = paste0("omega0 = ", as.numeric(levels(dfvol_fig$omega0))*100,"%")
+# 
+# dfvol_fig$logrules <- paste("Cycle:", dfvol_fig$logCycle, "yrs; Intensity:", dfvol_fig$logIntensity, "m3/ha")
+# 
+# ggplot(dfvol_fig, aes(x=t, y = med/1e6)) + 
+#   geom_line(aes(colour = logrules)) +
+#   geom_ribbon(alpha = 0.2, colour = NA, 
+#               aes(fill = logrules, 
+#                   ymin = lwr/1e6, 
+#                   ymax = upr/1e6)) + 
+#   facet_grid(ppf~ omega0, scales = "free")  + 
+#   labs(x = "Time (yrs)", y = "Commercial volume (Mm3)") +
+#   theme_bw() + 
+#   theme(legend.position = "top") 
 ```
 
 # References
