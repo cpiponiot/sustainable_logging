@@ -78,7 +78,7 @@ if (!file.exists("data/pconcessions.Rdata")) {
 } else load("data/pconcessions.Rdata")
 ```
 
-```{r map-brazil-concess, fig.height = 5, fig.width = 11}
+```{r map-brazil-concess, fig.height = 6.1, fig.width = 10, fig.cap="Plot of Brazilian Amazon forest concessions. Current federal concessions are in red; potential concessions (public forests designated for sustainable use) are in blue."}
 concessions <- rgdal::readOGR(dsn = "data_sfb/final", layer = "BRconc")
 flopub <- rgdal::readOGR(dsn = "data_sfb/final", layer = "BRflopub")
 map.world <- rgdal::readOGR("D:/Mes Donnees/maps/borders/South_America", "South_America")
@@ -86,7 +86,7 @@ nbrasil.map <- raster::crop(map.world, y = raster::extent(-74, -44, -11,5))
 plot(nbrasil.map, col = "#00000005")
 plot(flopub, col = 4, border = NA, add = TRUE)
 plot(concessions, col = 2, border = NA, add = TRUE)
-legend("topright", fill=c(2,4), legend = c("Current concessions", "Potential concessions"))
+legend("topleft", fill=c(2,4), inset = 0.1, legend = c("Current concessions", "Potential concessions"))
 ``` 
 
 
@@ -113,7 +113,7 @@ locations$pConcess <- locations$pConcess*pi
 locations$pFlona <- locations$pFlona*pi
 ```
 
-The total area of current federal concessions is `r signif(sum(pconcessions$area*pconcessions$pConcess)/1e6, 3)` Mha, and the area of all potential concessions is `r signif(sum(pconcessions$area*pconcessions$pFlona)/1e6, 3)`. 
+The total area of current federal concessions is `r signif(sum(pconcessions$area*pconcessions$pConcess)/1e6, 3)` Mha, and the area of all potential concessions is `r signif(sum(pconcessions$area*pconcessions$pFlona)/1e6, 3)` Mha. 
 
 ## The VDDE model 
 
@@ -121,7 +121,7 @@ In this study we used the volume dynamics with differential equations (VDDE) mod
 The VDDE model focuses on the total volume, i.e. the volume of all live trees with diameter at breast height (DBH) $\geq$ 50 cm (the standard minimum cutting size in the Amazon Basin). By contrast, only a portion of this volume is composed of commercial species and will be referred to as commercial volume. Two variables are explicitly modelled: the total volume and the proportion of commercial volume $\omega$, from which the commercial volume can be inferred. 
 
 In this study, we defined three input variables, that can be set for each simulation: the logging intensity, the logging cycle length, and the initial proportion of commercial volume $\omega_0$. Low values of $\omega_0$ represent highly selective logging where only the most valuable species are logged; by contrast, high values of $\omega_0$ mean that most species are logged. 
-Other parameters of the VDDE model are spatially defined at a 1 degree resolution. The model was calibrated at the Amazon Basin scale in a Bayesian framework with data from 3500 ha of forest plots, among which 845 ha are from 15 sites monitored for as long as 30 years after being subjected to selective logging [@Sist2015;@Piponiot2019a]. 
+Other parameters of the VDDE model are **spatially defined** at a 1$^\circ$ resolution. The model was calibrated at the Amazon Basin scale in a Bayesian framework with data from 3500 ha of forest plots, among which 845 ha are from 15 sites monitored for as long as 30 years after being subjected to selective logging [@Sist2015;@Piponiot2019a]. This means that predictions of commercial volume recovery depend on the location, and show some spatial variability across the Amazon Basin [@Piponiot2019a]. 
 
 Each logging cycle is composed of two steps: (i) the logging itself is a function of the logging intensity and the characteristics of the forest; and (ii) the post-logging volume recovery phase is a function of the logging cycle length, and of the characteristics of the forest. The logging lowers the total volume and the proportion of commercial volume. The total volume and proportion of commercial species then increase during the recovery phase [@Piponiot2019a]. These two steps are sequentially repeated to simulate 200 years of logging cycles. 
 
@@ -131,11 +131,11 @@ Errors are propagated by drawing all parameter values from their calibrated dist
 
 In this study we tested 54 different scenarios by using all combinations of the following inputs: (i) initial proportion of commercial volume: 20% (highly selective), 50% (intermediate) or 90% (not selective); (ii) logging intensity: 10 m$^3$.ha$^{-1}$ (low), 20 m$^3$.ha$^{-1}$ (intermediate) or 30 m$^3$.ha$^{-1}$ (high); (iii) length of cutting cycles: 20 years (short), 35 years (intermediate) or 60 years (long); (iv) concessions area: the area of current federal concessions, or the area of all potential concessions (see section: "Study areas"). 
 
-For each scenario we simulated 1000 years of logging cycles, and determined the duration of sustained production $tsust$, i.e. the time when timber stocks are not sufficient to maintain a constant timber production (Figure \@ref(fig:illust-sust-log)).
+For each scenario we simulated 1000 years of logging cycles, and determined the duration of constant production $tsust$, i.e. the time when timber stocks are not sufficient to maintain a constant timber production (Figure \@ref(fig:illust-sust-log)).
 <!-- , with a 5% tolerance. -->
 <!-- To do so, we assessed the timber extraction over all logged forests (either current or potential concessions) at each logging cycle; $tsust$ corresponds to the time when the median extracted timber (over all 100 iterations) is lower or equal to 95% of the target logging intensity.  -->
 
-```{r illust-sust-log, fig.height = 4, fig.width = 8, fig.cap = "Illustration of the the duration of sustained production. The x-axis represents the time since the first logging event, and the y-axis represents the evolution of commercial volume as simulated by the model with a logging intensity of 10 m$^3$.ha$^{-1}$ and a logging cycle of 60 years. At each logging event, the commercial volume decreases because of timber exctraction (blue segments). If the logging cycles are not long enough to recover its pre-logging value, the commercial volume decreases until it is not sufficient to maintain a constant production (red segments). The time taken to reach this limit is the duration of sustained production."}
+```{r illust-sust-log, fig.height = 4, fig.width = 8, fig.cap = "Illustration of the the duration of constant production. The x-axis represents the time since the first logging event, and the y-axis represents the evolution of commercial volume as simulated by the model with a logging intensity of 10 m$^3$.ha$^{-1}$ and a logging cycle of 60 years. At each logging event, the commercial volume decreases because of timber exctraction (blue segments). If the logging cycles are not long enough to recover its pre-logging value, the commercial volume decreases until it is not sufficient to maintain a constant production (red segments). The time taken to reach this limit is the duration of constant production."}
 logCyc = 60
 logInt = 10
 
@@ -168,8 +168,8 @@ ggplot() +
   annotate(geom = "segment", x = 0, xend = tsust, y = 54, yend = 54,
            arrow = arrow(length = unit(0.2, "cm"), ends = "both")) +
   annotate(geom = "text", x = c(500, 800, 350), y = c(25, 8, 52), col = c(4,2, 1),
-           label = c("Sustained\nproduction", "Timber depletion", 
-                     "Duration of sustained production (tsust)")) +
+           label = c("Constant\nproduction", "Timber depletion", 
+                     "Duration of constant production (tsust)")) +
   labs(x = "Time (yr)", y = "Commercial volume") + 
   theme_classic() + 
   scale_x_continuous(expand = c(0, 0)) + 
@@ -343,11 +343,13 @@ dftsust[variable == "prodi", `:=`(lwr = lwr/logCycle,
 dftsust[variable == "tsust", `:=`(lwr = lwr*logCycle, 
                                   med = med*logCycle, 
                                   upr = upr*logCycle)]
+dftsust[variable == "tsust" & med > 1000, med := 1000]
+dftsust[variable == "tsust" & upr > 1000, upr := 1000]
 dftsust = dcast(dftsust, omega0 + logIntensity + logCycle + ppf ~ variable, 
                 value.var = c("lwr", "med", "upr"))
 ```
 
-```{r tsust-vs-prodi, fig.width = 10, fig.height = 8, fig.cap = "Tradeoff between timber production and sustainability. The x-axis is the annual timber production under each scenario, and in all areas considered in the scenario (left panels: current concessions; right panels: potential concessions). The y-axis is the duration of sustained production in each scenario, in years. The points are the median value over all simulations for each scenario; the vertical and horizontal error bars are the 95% credibility intervals. Colors represent logging rules (3 logging intensities x 3 logging cycle lengths) and the 3 values of initial proprtion of commercial volume (omega_0) are represented by different panels, in increasing order from top to bottom. The target production of timber is 11 Mm$^3$.yr$^{-1}$, corresponding to the current timber production in Brazilian Amazonian forests. Only a few scenarios in the right panels (all potential concessions) are above this target, and all of them have a median duration of sustained production lower than 200 years."}
+```{r tsust-vs-prodi, fig.width = 10, fig.height = 8, fig.cap = "Tradeoff between timber production and sustainability. The x-axis is the annual timber production under each scenario, and in all areas considered in the scenario (left panels: current concessions; right panels: potential concessions). The y-axis is the duration of constant production in each scenario, in years. The points are the median value over all simulations for each scenario; the vertical and horizontal error bars are the 95% credibility intervals. Colors represent logging rules (3 logging intensities x 3 logging cycle lengths) and the 3 values of initial proportion of commercial volume (omega_0) are represented by different panels, in increasing order from top to bottom. The target production of timber is 11 Mm$^3$.yr$^{-1}$, corresponding to the current timber production in Brazilian Amazonian forests. Only a few scenarios in the right panels (all potential concessions) are above this target, and all of them have a median duration of constant production lower than 200 years."}
 ## legend
 palette <- function (name, indices = c(7,5,3)) {
   RColorBrewer::brewer.pal(9, name)[indices]
@@ -389,7 +391,7 @@ graph <- ggplot(dftsust, aes(y=med_tsust, x = med_prodi/1e6)) +
   geom_errorbarh(height = 0, aes(xmin = lwr_prodi/1e6, xmax = upr_prodi/1e6, color = logRules)) +
   facet_grid(omega0 ~ ppf, scales = "free") +
   labs(x = bquote("Annual timber production (M"* m^3*.*yr^-1*")"), 
-       y = "Duration of sustained production (yrs)", 
+       y = "Duration of constant production (yrs)", 
        color = "Logging rules") + 
   scale_color_manual(values = colour_palette) +
   theme_bw() +
@@ -428,13 +430,20 @@ ggpubr::ggarrange(graph, rules_legend, widths = c(9,4))
 ```
 
 
-<!-- ```{r sust-production, results = "asis"} -->
-<!-- kable(sust_prodF[, c("omega0", "logIntensity", "logCycle", "current", "potential")],  -->
-<!--       col.names = c("Commercial volume", "Log. int. (m3/ha)", "Log. cycle (yr)",  -->
-<!--                     "Production in current concessions (Mm3/yr)",  -->
-<!--                     "Production in potential concessions (Mm3/yr)"),  -->
-<!--       caption = "Results of all sustainable scenarios. Sustainable scenarios are defined as the combination of input variables that result in a constant production of timber for the 200-yr simulations. The first 3 columns correspond to the input variables: the proportion of commercial volume (%); logging intensity (m$^3$.ha${^-1}$) and logging cycle length (yr). The 2 last columns correspond to the annual production of timber (Mm$^3$.yr$^{-1}$) under those scenarios, if current concessions or all potential concessions are used, respectively. NA means that the scenario was not sustainable under that definition of concession area (current or potential).") -->
-<!-- ``` -->
+```{r sust-production, results = "asis"}
+dftsust[, lab_tsust := paste0(gsub("1000", "1000+", med_tsust), 
+                              " yr (", lwr_tsust, "-", 
+                              gsub("1000", "1000+", upr_tsust), ")")]
+dftsust[, omega0 := gsub("omega0 = ", "", omega0)]
+dftsust[, ppf := gsub(" concessions", "", ppf)]
+dftsust[, logIntensity := paste(logIntensity, "m3/ha")]
+dftsust[, logCycle := paste(logCycle, "yr")]
+
+kable(dftsust[, c("omega0", "logIntensity", "logCycle", "ppf", "lab_tsust")],
+      col.names = c("Comm. volume", "Log. intensity", "Log. cycle",
+                    "Concession area", "Duration of constant timber production"),
+      caption = "Sustainability of all 54 scenarios, characterized by the duration of constant timber production (yrs, last column). The first 4 columns correspond to the input variables: the proportion of commercial volume (%); logging intensity (m$^3$.ha${^-1}$); logging cycle length (yr); and the forest area considered, either current federal concessions or all potential concessions. The provided values for the duration of constant production is the median value of all iterations, followed by the 95% credibility interval (between parentheses).")
+```
 
 ```{r timber-stocks-br, fig.height=6, fig.width = 10, fig.cap="Commercial volume stocks in all potential concession areas for all sustainable scenarios."}
 # dfvol_fig <- copy(dfvolume)
@@ -455,5 +464,28 @@ ggpubr::ggarrange(graph, rules_legend, widths = c(9,4))
 #   theme_bw() + 
 #   theme(legend.position = "top") 
 ```
+
+
+In all scenarios with an initial proportion of commercial volume of 20%, the timber production decreased after the first logging cycle due to overharvesting (Figure \@ref(fig:tsust-vs-prodi)). Increasing the proportion of commercial volume to 50% increased the duration of constant production when the logging intensity was 10 to 20 m$^3$.ha$^{-1}$, reaching `r dftsust[logIntensity=="10 m3/ha" & logCycle=="60 yr" & omega0=="50%" & ppf=="Potential", lab_tsust]` when the logging intensity is 10 m$^3$.ha$^{-1}$ and the logging cycle length is 60 years (Table \ref(tab:sust-production); Figure \@ref(fig:tsust-vs-prodi)). 
+
+Only `r sum(dftsust$med_tsust==1000)` out of all 54 scenarios have a median duration of constant production greater or equal to 1000 years (the maximum simulation length), and can thus be considered sustainable *sensu stricto*. All these scenarios had an initial proportion of commercial volume of 90%, and correspond to low intensity logging (10 m$^3$.ha$^{-1}$) and medium to long cutting cycles (35 or 60 years). 
+
+Logging regulations in the Brazilian Amazon include minimum logging cycles of 35 years. Under these regulation, the duration of constant production is `dftsust[omega0=="50%"&logCycle=="35 yr"][which.max(med_tsust), lab_tsust]` if 50% of the volume is commercial, and `r dftsust[omega0=="90%"&logCycle=="35 yr"][which.max(med_tsust), lab_tsust]` if 90% of the volume is commercial (i.e. a true sustaible production). However these scenarios imply low logging intensities of 10 m$^3$.ha$^{-1}$.
+
+The current timber production in the Amazon is around 11 Mm$^3$ per year [@Vidal2020;@SFB2019]. Current concessions are not able to satisfy this demand alone for more than one cutting cycle (Figure \ref(fig:tsust-vs-prodi)), even under the most optimistic hypotheses. When considering all potential concession areas, the annual production of 11 Mm$^3$.ha$^{-1}$ could be maintained for `r dftsust[omega0=="50%"&med_prodi >=11e6][which.max(med_tsust), lab_tsust]` when 50% of the volume is commercial, and for `r dftsust[omega0=="90%"&med_prodi>=11e6][which.max(med_tsust), lab_tsust]` years when 90% of the timber is commercial (Table \ref(tab:sust-production)) 
+
+
+# Discussion
+
+- methods: optimistic hypotheses -> to be considered when interpreting results
+
+- increasing the area of concessions: current trends, challenges and opportunities
+
+- initial proportion of commercial species: what effect could harvesting 90% of all trees > 50 cm DBH could have on the profitability of selective logging? 
+
+- initiating a forest transition -> new ways of producing timber: plantations, active restoration, silviculture
+
+- what effects could silviculture have on sustainability? -> needs to be investigated (introduce next paper)
+
 
 # References
