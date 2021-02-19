@@ -11,7 +11,7 @@ bibliography: myBiblio.bib
 knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, results='hide', 
                       root.dir = rprojroot::find_rstudio_root_file())
 # load libraries
-packages_needed <- c("knitr", "data.table", "ggplot2", "parallel", "sp", "truncnorm")
+packages_needed <- c("knitr", "data.table", "ggplot2", "parallel", "sp", "truncnorm", "tmap")
 packages_to_install <- packages_needed[!( packages_needed %in% rownames(installed.packages()))]
 if (length(packages_to_install) > 0)
   install.packages(packages_to_install)
@@ -33,7 +33,7 @@ Although reduced impact logging techniques were seen as a promising alternative 
 
 Despite the low recovery of timber stocks in logged forests, selective logging is still a widespread and economically viable land use in the Amazon. Around 75% of the five hundred million ha of forests are still intact [@Potapov2017] and have accumulated highly valuable timber over centuries. Moreover, illegal logging is widespread in the region and often results in forest degradation [@Brancalion2018;@Finer2014]: it is therefore difficult to assess the true state of Amazon forests, and their current potential for timber production. In the absence of changes in logging practices and enforcement of logging regulations, it is very likely that most logged forests will have a dramatic reduction in timber yields [@Putz2012;@Piponiot2019a], decreasing their chance of meeting the demand for timber products. 
 
-In 2006, the Brazilian Forest Service (SFB) was created to implement a very ambitious system of long-term logging concessions [@Brazil2006]. The concession system set up by the SFB aims to provide a legal framework for sustainable timber production in the Amazon while reducing illegal logging and concentrating Amazonian timber production within those concessions. Today Brazilian forest concessions cover 1.5 million ha in the Amazon, with a maximum potential area estimated at 60 million ha [@Bomfim2016]. The current timber production in Brazilian forest concessions is 221 thousand m$^3$ per year, representing only 2% of the timber extracted in the Brazilian Amazon [@SFB2019]. The forest management system remains based on selective logging and the capacity of natural production forests of the Amazon under concession to meet rising demands for wood products on a long-term basis must be questioned urgently.
+In 2006, the Brazilian Forest Service (SFB) was created to implement a very ambitious system of long-term logging concessions [@Brazil2006]. The concession system set up by the SFB aims to provide a legal framework for sustainable timber production in the Amazon while reducing illegal logging and concentrating Amazonian timber production within those concessions. Today Brazilian forest concessions cover 1.6 million ha in the Amazon, with a maximum potential area estimated at 60 million ha [@Bomfim2016]. The current timber production in Brazilian forest concessions is 221 thousand m$^3$ per year, representing only 2% of the timber extracted in the Brazilian Amazon [@SFB2019]. The forest management system remains based on selective logging and the capacity of natural production forests of the Amazon under concession to meet rising demands for wood products on a long-term basis must be questioned urgently.
 
 In this study we used an Amazon-wide timber recovery model developed by @Piponiot2019a to estimate the total timber volume that could be produced in Brazilian logging concessions under varying cycle lengths, logging intensities and pool of commercial species. We identified the conditions under which selective logging was sustainable from a timber production point of view and what its production capacity was in relation to the demand for wood. 
 
@@ -43,8 +43,6 @@ First, this paper aims to assess which logging regimes (logging intensity and ro
 # Methods
 
 ## Study areas - Brazilian concessions
-
-Our study focuses on the Brazilian forest concessions. These concessions are located in public forests and currently cover an area of 1.55 Mha in the Brazilian Amazon, of which 1.05 Mha are federal concessions, managed by the SFB, and 0.5 Mha are managed by state-level agencies [@SFB2019]. We retrieved the map of federal concessions and the map of all public forests from the Brazilian Forest Service website [@SFB2020;@SFB2019a]. We defined the area of all potential concessions as the area of all public forests that (i) are in the Brazilian Amazon biome, (ii) are designated for sustainable use, and (iii) are not community forests, indigenous territories or military areas [as defined in @SFB2019, p. 112].  
 
 ```{r get-prop-concess}
 if (!file.exists("data/pconcessions.Rdata")) {
@@ -78,15 +76,30 @@ if (!file.exists("data/pconcessions.Rdata")) {
 } else load("data/pconcessions.Rdata")
 ```
 
-```{r map-brazil-concess, fig.height = 6.1, fig.width = 10, fig.cap="Plot of Brazilian Amazon forest concessions. Current federal concessions are in red; potential concessions (public forests designated for sustainable use) are in blue."}
+Our study focuses on the Brazilian forest concessions. These concessions are located in public forests and currently cover an area of 1.6 Mha in the Brazilian Amazon, of which 1.05 Mha are concessions, managed by the SFB, and 0.6 Mha are managed by state-level agencies [@SFB2019]. We retrieved the map of current concessions and the map of all public forests from the Brazilian Forest Service and IDEFLOR websites [@SFB2020;@SFB2019a;@IDEFLOR2020]. We defined the area of all potential concessions as the area of all public forests that (i) are in the Brazilian Amazon biome, (ii) are designated for sustainable use, and (iii) are not community forests, indigenous territories or military areas [as defined in @SFB2019, p. 112; Figure \@ref(fig:map-brazil-concess)]. 
+
+```{r map-brazil-concess, fig.height = 5, fig.width = 8, fig.cap="Plot of Brazilian Amazon forest concessions. Current federal concessions are in red; potential concessions (public forests designated for sustainable use) are in blue."}
 concessions <- rgdal::readOGR(dsn = "data_sfb/final", layer = "BRconc")
+concessions$ppf <- "current"
 flopub <- rgdal::readOGR(dsn = "data_sfb/final", layer = "BRflopub")
-map.world <- rgdal::readOGR("D:/Mes Donnees/maps/borders/South_America", "South_America")
-nbrasil.map <- raster::crop(map.world, y = raster::extent(-74, -44, -11,5))
-plot(nbrasil.map, col = "#00000005")
-plot(flopub, col = 4, border = NA, add = TRUE)
-plot(concessions, col = 2, border = NA, add = TRUE)
-legend("topleft", fill=c(2,4), inset = 0.1, legend = c("Current concessions", "Potential concessions"))
+flopub <- rbind(flopub, concessions)
+map.samerica <- rgdal::readOGR("D:/Mes Donnees/maps/borders/South_America", "South_America")
+map.samerica <- raster::crop(map.samerica, raster::extent(-85,-33,-56,13))
+nb_region = sf::st_as_sfc(sf::st_bbox(c(xmin = -74, xmax = -44, ymin = -11, ymax = 5),
+                    crs = sf::st_crs(map.samerica)))
+conc_map = tm_shape(map.samerica, bbox = nb_region) +  ## maybe just subset world map
+  tm_polygons(alpha = 0) +
+  tm_shape(flopub) +
+  tm_fill(col = "ppf", 
+          title = "Concession area", 
+          palette = c("firebrick3", "dodgerblue2")) + 
+  tm_compass(type = "8star", position = c("right", "bottom")) +
+  tm_scale_bar(breaks = c(0, 100, 200), text.size = 1)
+sam_map = tm_shape(map.samerica) + tm_polygons() + 
+  tm_shape(nb_region) + tm_borders(lwd = 3) 
+
+conc_map
+print(sam_map, vp = grid::viewport(0.1, 0.7, width = 0.2, height = 0.4))
 ``` 
 
 
@@ -113,7 +126,6 @@ locations$pConcess <- locations$pConcess*pi
 locations$pFlona <- locations$pFlona*pi
 ```
 
-The total area of current federal concessions is `r signif(sum(pconcessions$area*pconcessions$pConcess)/1e6, 3)` Mha, and the area of all potential concessions is `r signif(sum(pconcessions$area*pconcessions$pFlona)/1e6, 3)` Mha. 
 
 ## The VDDE model 
 
@@ -129,13 +141,13 @@ Errors are propagated by drawing all parameter values from their calibrated dist
 
 ## Testing scenarios
 
-In this study we tested 54 different scenarios by using all combinations of the following inputs: (i) initial proportion of commercial volume: 20% (highly selective), 50% (intermediate) or 90% (not selective); (ii) logging intensity: 10 m$^3$.ha$^{-1}$ (low), 20 m$^3$.ha$^{-1}$ (intermediate) or 30 m$^3$.ha$^{-1}$ (high); (iii) length of cutting cycles: 20 years (short), 35 years (intermediate) or 60 years (long); (iv) concessions area: the area of current federal concessions, or the area of all potential concessions (see section: "Study areas"). 
+In this study we tested 27 different scenarios by using all combinations of the following inputs: (i) initial proportion of commercial volume: 20% (highly selective), 50% (intermediate) or 90% (not selective); (ii) logging intensity: 10 m$^3$.ha$^{-1}$ (low), 20 m$^3$.ha$^{-1}$ (intermediate) or 30 m$^3$.ha$^{-1}$ (high); (iii) length of cutting cycles: 20 years (short), 35 years (intermediate) or 60 years (long). These scenarios are then applied to 2 different definitions of concessions area: the area of current concessions, or the area of all potential concessions (see section: "Study areas"). 
 
 For each scenario we simulated 1000 years of logging cycles, and determined the duration of constant production $tsust$, i.e. the time when timber stocks are not sufficient to maintain a constant timber production (Figure \@ref(fig:illust-sust-log)).
 <!-- , with a 5% tolerance. -->
 <!-- To do so, we assessed the timber extraction over all logged forests (either current or potential concessions) at each logging cycle; $tsust$ corresponds to the time when the median extracted timber (over all 100 iterations) is lower or equal to 95% of the target logging intensity.  -->
 
-```{r illust-sust-log, fig.height = 4, fig.width = 8, fig.cap = "Illustration of the the duration of constant production. The x-axis represents the time since the first logging event, and the y-axis represents the evolution of commercial volume as simulated by the model with a logging intensity of 10 m$^3$.ha$^{-1}$ and a logging cycle of 60 years. At each logging event, the commercial volume decreases because of timber exctraction (blue segments). If the logging cycles are not long enough to recover its pre-logging value, the commercial volume decreases until it is not sufficient to maintain a constant production (red segments). The time taken to reach this limit is the duration of constant production."}
+```{r illust-sust-log, fig.height = 4, fig.width = 8, fig.cap = "Illustration of the duration of constant production. The x-axis represents the time since the first logging event, and the y-axis represents the evolution of commercial volume as simulated by the model with a logging intensity of 10 m$^3$.ha$^{-1}$ and a logging cycle of 60 years. At each logging event, the commercial volume decreases because of timber harvests (blue segments). If the logging cycles are not long enough to recover its pre-logging value, the commercial volume decreases until it is not sufficient to maintain a constant production (red segments). The time taken to reach this limit is the duration of constant production."}
 logCyc = 60
 logInt = 10
 
@@ -362,7 +374,7 @@ df_rules <- data.table(logRules = c("LS","LM","LL","MS","MM","ML","HS","HM","HL"
                        logIntensity = rep(10*1:3, each=3),
                        logCycle = rep(c(20,35,60), 3))
 rules_legend <- ggplot(df_rules, aes(x=logIntensity, y=as.factor(logCycle),
-                                    fill=logRules, label=logRules)) + 
+                                     fill=logRules, label=logRules)) + 
   geom_raster() + scale_fill_manual(values = colour_palette) + 
   # geom_text(size=5) + 
   labs(x =expression("Logging intensity ("*m^3*ha^{-1}*")"), y = "Logging cycle (yrs)") + 
@@ -425,12 +437,13 @@ ggpubr::ggarrange(graph, rules_legend, widths = c(9,4))
 # max3b <- paste0(tstrsplit(max3, " ")[[1]], " (95% confidence interval: ", tstrsplit(max3, "\\(")[[2]])
 # max4 <- sust_prodF50[which.max(as.numeric(tstrsplit(potential, " ")[[1]])), "potential"]
 
-# After 200 years, `r nrow(sust_simus)` scenarios (out of 54) kept a constant total volume production. When 50% of the initial volume is composed of commercial species, the maximum volume produced is `r max3b` Mm$^3$ in current forest concessions and `r max4` Mm$^3$ in all potential concessions (i.e. all available public forests; Table \@ref(tab:sust-production)).
+# After 200 years, `r nrow(sust_simus)` scenarios (out of 27) kept a constant total volume production. When 50% of the initial volume is composed of commercial species, the maximum volume produced is `r max3b` Mm$^3$ in current forest concessions and `r max4` Mm$^3$ in all potential concessions (i.e. all available public forests; Table \@ref(tab:sust-production)).
 # When 90% of the initial volume is composed of commercial species, `r max1` Mm$^3$ in current forest concessions and `r max2` Mm$^3$ in all potential concessions.
 ```
 
 
 ```{r sust-production, results = "asis"}
+dfsave = copy(dftsust)
 dftsust[, lab_tsust := paste0(gsub("1000", "1000+", med_tsust), 
                               " yr (", lwr_tsust, "-", 
                               gsub("1000", "1000+", upr_tsust), ")")]
@@ -438,11 +451,12 @@ dftsust[, omega0 := gsub("omega0 = ", "", omega0)]
 dftsust[, ppf := gsub(" concessions", "", ppf)]
 dftsust[, logIntensity := paste(logIntensity, "m3/ha")]
 dftsust[, logCycle := paste(logCycle, "yr")]
+dftsust <- dcast(dftsust, omega0 + logIntensity + logCycle ~ ppf, value.var = "lab_tsust")
 
-kable(dftsust[, c("omega0", "logIntensity", "logCycle", "ppf", "lab_tsust")],
+kable(dftsust[, c("omega0", "logIntensity", "logCycle", "Current", "Potential")],
       col.names = c("Comm. volume", "Log. intensity", "Log. cycle",
-                    "Concession area", "Duration of constant timber production"),
-      caption = "Sustainability of all 54 scenarios, characterized by the duration of constant timber production (yrs, last column). The first 4 columns correspond to the input variables: the proportion of commercial volume (%); logging intensity (m$^3$.ha${^-1}$); logging cycle length (yr); and the forest area considered, either current federal concessions or all potential concessions. The provided values for the duration of constant production is the median value of all iterations, followed by the 95% credibility interval (between parentheses).")
+                    "Duration of constant production - Current concession area", "Duration of constant production - Potential concession area"),
+      caption = "Sustainability of all 27 scenarios, characterized by the duration of constant timber production (yrs, last 2 columns). The first 3 columns correspond to the input variables: the proportion of commercial volume (%); logging intensity (m$^3$.ha${^-1}$); logging cycle length (yr). The 2 last columns are the duration of constant timber production in current concession areas and in all potential concessions, as the median value of all iterations, followed by the 95% credibility interval (between parentheses).")
 ```
 
 ```{r timber-stocks-br, fig.height=6, fig.width = 10, fig.cap="Commercial volume stocks in all potential concession areas for all sustainable scenarios."}
@@ -466,26 +480,34 @@ kable(dftsust[, c("omega0", "logIntensity", "logCycle", "ppf", "lab_tsust")],
 ```
 
 
-In all scenarios with an initial proportion of commercial volume of 20%, the timber production decreased after the first logging cycle due to overharvesting (Figure \@ref(fig:tsust-vs-prodi)). Increasing the proportion of commercial volume to 50% increased the duration of constant production when the logging intensity was 10 to 20 m$^3$.ha$^{-1}$, reaching `r dftsust[logIntensity=="10 m3/ha" & logCycle=="60 yr" & omega0=="50%" & ppf=="Potential", lab_tsust]` when the logging intensity is 10 m$^3$.ha$^{-1}$ and the logging cycle length is 60 years (Table \ref(tab:sust-production); Figure \@ref(fig:tsust-vs-prodi)). 
+None of the scenarios with an initial proportion of commercial volume of 20% are sustainable after the first logging cycle (Figure \@ref(fig:tsust-vs-prodi); Table \@ref(tab:sust-production)). The present logging practices in the Brazilian Amazon with a proportion of commercial species not exceeding 20%, a mean logging intensity of 15-20 m$^3$.ha$^{-1}$ and a rotation cycle of 35 years are therefore not sustainable as there will be a significant decrease in timber production at the second cycle (< 20 m$^3$.ha$^{-1}$). 
 
-Only `r sum(dftsust$med_tsust==1000)` out of all 54 scenarios have a median duration of constant production greater or equal to 1000 years (the maximum simulation length), and can thus be considered sustainable *sensu stricto*. All these scenarios had an initial proportion of commercial volume of 90%, and correspond to low intensity logging (10 m$^3$.ha$^{-1}$) and medium to long cutting cycles (35 or 60 years). 
+Scenarios with a proportion of commercial volume of 50% show longer duration of constant production. The most sustainable one with a constant production of timber during `r dftsust[logIntensity=="10 m3/ha" & logCycle=="60 yr" & omega0=="50%", "Potential"]` allows a logging intensity of 10 m$^3$.ha$^{-1}$ every 60 years (Table \@ref(tab:sust-production); Figure \@ref(fig:tsust-vs-prodi)). Scenarios with a proportion of 90% of commercial species are among the most sustainable.
 
-Logging regulations in the Brazilian Amazon include minimum logging cycles of 35 years. Under these regulation, the duration of constant production is `dftsust[omega0=="50%"&logCycle=="35 yr"][which.max(med_tsust), lab_tsust]` if 50% of the volume is commercial, and `r dftsust[omega0=="90%"&logCycle=="35 yr"][which.max(med_tsust), lab_tsust]` if 90% of the volume is commercial (i.e. a true sustaible production). However these scenarios imply low logging intensities of 10 m$^3$.ha$^{-1}$.
+Only 4 out of all 27 scenarios have a median duration of constant production greater or equal to 500 years which can be considered as sustainable *sensu stricto*. Three of these scenarios have an initial proportion of commercial volume of 90%, and two correspond to low intensity logging (10 m$^3$.ha$^{-1}$) with a rotation cycle of 60 years (Table \@ref(tab:sust-production)). Logging regulations in the Brazilian Amazon include minimum logging cycles of 35 years. Under these regulations, the duration of constant production is `r dftsust[omega0=="50%"&logCycle=="35 yr"&logIntensity=="10 m3/ha"][, "Potential"]` if 50% of the volume is commercial, and `r dftsust[omega0=="90%"&logCycle=="35 yr"&logIntensity=="10 m3/ha"][, "Potential"]` if 90% of the volume is commercial (i.e. a true sustainable production). However these scenarios imply low logging intensities of 10 m$^3$.ha$^{-1}$ and a higher proportion of commercial timber species than in the present. According to our simulations and considering the 95% credibility interval, the most sustainable scenario is the one with an initial proportion of 90% of commercial species allowing a logging intensity of 10 m$^3$.ha$^{-1}$ every 60 years (Table \@ref(tab:sust-production)).
 
-The current timber production in the Amazon is around 11 Mm$^3$ per year [@Vidal2020;@SFB2019]. Current concessions are not able to satisfy this demand alone for more than one cutting cycle (Figure \ref(fig:tsust-vs-prodi)), even under the most optimistic hypotheses. When considering all potential concession areas, the annual production of 11 Mm$^3$.ha$^{-1}$ could be maintained for `r dftsust[omega0=="50%"&med_prodi >=11e6][which.max(med_tsust), lab_tsust]` when 50% of the volume is commercial, and for `r dftsust[omega0=="90%"&med_prodi>=11e6][which.max(med_tsust), lab_tsust]` years when 90% of the timber is commercial (Table \ref(tab:sust-production)) 
+
+The current timber production in the Amazon is around 11 Mm$^3$ per year [@Vidal2020;@SFB2019]. Current concessions are not able to satisfy this demand alone for more than one cutting cycle (Figure  \@ref(fig:tsust-vs-prodi)). The maximum production under the current concession areas is `r signif(dfsave[logRules=="HS"&ppf=="Current concessions"&omega0=="omega0 = 90%", "med_prodi"], 3)/1e6` Mm$^3$ only during the first harvesting and a proportion of commercial species of 90%. Under the present practices (20 m$^3$.ha$^{-1}$) every 35 years and 20% of commercial species), the annual production during the first harvest reach `r signif(dfsave[logRules=="MM"&ppf=="Current concessions"&omega0== "omega0 = 20%","med_prodi"], 2)/1e6` Mm$^3$ only. Finally, under current concession area four scenarios can be considered as sustainable (duration of constant production > 500 years). The highest sustainable production is recorded under an extraction rate of 20 m$^3$.ha$^{-1}$ every 60 years with a 90% proportion of commercial species (Figure \@ref(fig:tsust-vs-prodi)).
+
+When considering all potential concession areas (35 Mha), the annual production of 11 Mm$^3$.yr$^{-1}$ could be sustained at best during `r dftsust[omega0=="90%"& logCycle=="35 yr"&logIntensity=="20 m3/ha"][, "Potential"]` following a scenario with 90% of commercial species, a logging intensity of 20 m$^3$.ha$^{-1}$  and a rotation cycle of 35 years (Figure \@ref(fig:tsust-vs-prodi); Table 1). There are two others scenarios close to 11 Mm$^3$ with a sustained duration of 250 years (Figure \@ref(fig:tsust-vs-prodi)), with a logging intensity of 10 and 30 m$^3$.ha$^{-1}$ and a logging cycle length of 20 and 60 years, respectively. 
 
 
 # Discussion
 
-- methods: optimistic hypotheses -> to be considered when interpreting results
+- methods: optimistic hypotheses -> to be considered when interpreting results -> Camille
+
+- According to the results of our simulations, several challenges must be faced to reach sustained timber production within the concession systems in the Brazilian Amazon. First, the proportion of commercial species must increase considerably at least to 50% but ideally to 90%. Second, the logging intensity must be reduced to 10 m$^3$.ha$^{-1}$ and the rotation cycle to 60 years. Third, the area of current concessions is obviously insufficient to reach an annual production of 11 Mm$^3$ and it is urgent to increase drastically concession area to its maximum potential of 35 Mha. However, the potential concession area of 35 Mha  show strong limitation to ensure a annual sustainable production of 11 Mm$^3$ on a long term basis as our simulations suggest that this production can be sustained for at best 170 years with a 90% proportion of commercial species. 
+
+- This study confirms that the present regulation fixing a rotation cycle of 35 years  cannot ensure a long term sustainable timber production. Although previous studies already demonstrated the need to change the present extraction rates (Sist and Ferreira 2007, Putz et al. 2008, other refs) our paper is the first one suggesting and assessing different options of logging practices. The main challenge to move towards more sustainable practices is undoubtedly to increase the proportion of commercial species from presently 20 % to 90%. This must involve drastic changes at all level but particularly in the industrial and market sectors. At present, the wood transformation industry is still technically very poorly developed and very rudimentary (refs?). Less than 30% of the logs entering the saw mill is transformed, the remaining 70% are wasted and burned. However, the lack of wood transformation technology is certainly linked to the lack of market demand on diversified wood products in the region. To be developed (Jack ? Edson ?)
 
 - increasing the area of concessions: current trends, challenges and opportunities
 
-- initial proportion of commercial species: what effect could harvesting 90% of all trees > 50 cm DBH could have on the profitability of selective logging? 
+- initial proportion of commercial species: what effect could harvesting 90% of all trees > 50 cm DBH could have on the profitability of selective logging?
 
 - initiating a forest transition -> new ways of producing timber: plantations, active restoration, silviculture
 
 - what effects could silviculture have on sustainability? -> needs to be investigated (introduce next paper)
+
 
 
 # References

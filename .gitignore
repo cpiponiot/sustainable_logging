@@ -42,5 +42,6 @@ vignettes/*.pdf
 # large shapefiles
 data_sfb/public-forests
 data_sfb/current-federal-concessions
+data_sfb/current-state-concessions
 shapefiles_lucas
 data_sfb/SHP_UF.rar
