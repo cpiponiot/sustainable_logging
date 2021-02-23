@@ -27,18 +27,13 @@ if (!dir.exists("cache"))
 
 # Introduction
 
-Since the 1970s, selective logging has established itself as the main silvicultural system in tropical regions. This system is based on very simple rules: the exploitation of a few commercial trees having reached a minimum cutting diameter and letting the forest recover during a rotation period generally between 25 and 35 years. In the Amazon, selective logging regulations typically set a rotation cycle of 20 to 35 years with a logging intensity varying from 15 to 30 m$^3$ of harvested timber per ha. However, several studies showed that under such extraction regimes, less than 50% of the timber extracted can recover within this rotation duration [@Sist2007;@Putz2012]. A recent study simulating the timber recovery in all the region confirmed this result and showed that even under long rotation cycles of 65 years and a logging intensity of 20 m$^3$.ha$^{-1}$, logged forests could recover at most 70% of their initial timber [@Piponiot2019a]. Current harvest regimes can only be sustained over multiple cycles if high-value slow-growing hardwoods are replaced by species of fast growth and low density, which are very little valued in the current market [@Alder2000;@Keller2004;@Phillips2004a;@VanGardingen2006;@Schulze2008b].
+Legal logging in the tropics is typically governed by simple rules that set a minimum cutting diameter and a minimum cutting cycle of 25-35 years [@Putz2008]. Timber harvests in diverse forests are selective because few species are marketable and few trees meet the size and bole quality requirements. In the Amazon, selective logging regulations typically set a rotation cycle of 20 to 35 years with a logging intensity varying from 15 to 30 m$^3$ of harvested timber per ha. Such rules, promulgated by governments since the middle of last century, are generally based on an assumed post-logging rate of commercial timber volume increments of about 1 m$^3$.ha$^{-1}$.year$^{-1}$ (0.86 m$^3$.ha$^{-1}$.year$^{-1}$ in Brazilian Amazon). These rules are set to accommodate processing technologies and market demands, rather than the biology and conservation of the harvested species [@Sist2008]. Unfortunately for the goal of sustainability, research reports over the past decades demonstrated that volume recovery rates fall short of this expectation by 50% [reviewed by @Putz2012]. A recent simulation of post-logging timber volume recovery rates in the Amazon Basin showed that even with cutting cycles of 65 years and logging intensities of only 20 m$^3$.ha$^{-1}$, logged forests recover only 70% of their pre-logging timber stocks [@Piponiot2019a]. Other researchers showed that current harvest regimes can only be sustained over multiple cycles if high-value slow-growing hardwoods are replaced by fast-growing species with low density wood of little market value [@Alder2000;@Keller2004;@Phillips2004;@Gardingen2006;@Sist2007;@Schulze2008]. Here we use a timber recovery model [@Piponiot2019a] to estimate the timber volumes that could be produced by all the logging concessions in the Brazilian Amazon with different cutting cycle lengths, logging intensities, and lengths of the list of commercial species. 
 
-Although reduced impact logging techniques were seen as a promising alternative to reduce the damage of logging and consequently to improve timber volume recovery [@Schulze2008b], most of the studies assessing the long-term impacts of such techniques in the tropics - including the Amazon - showed that timber volume will recover at best 50% of its pre-logging value within the rotation cycle duration fixed by legislation [@Sist2007;@Putz2012;@DeAvila2017].
+Despite low rates of post-harvest timber stock recovery, selective logging is still widespread and economically important land use in the tropics in general and Amazon Basin in particular. In that region, forest degradation due to illegal logging is widespread [@Brancalion2018;@Finer2014;@Potapov2017] and, in the Brazilian Amazon, affects now bigger areas than deforestation [@Matriciardi2020]. This makes difficult to assess the region's current potential for timber production. What is clear, in contrast, is that without control of illegal logging and improved practices where logging is legal, timber yields from logged forests will decline dramatically [@Putz2012;@Piponiot2019a], decreasing the likelihood of their meeting the demand for timber.
 
-Despite the low recovery of timber stocks in logged forests, selective logging is still a widespread and economically viable land use in the Amazon. Around 75% of the five hundred million ha of forests are still intact [@Potapov2017] and have accumulated highly valuable timber over centuries. Moreover, illegal logging is widespread in the region and often results in forest degradation [@Brancalion2018;@Finer2014]: it is therefore difficult to assess the true state of Amazon forests, and their current potential for timber production. In the absence of changes in logging practices and enforcement of logging regulations, it is very likely that most logged forests will have a dramatic reduction in timber yields [@Putz2012;@Piponiot2019a], decreasing their chance of meeting the demand for timber products. 
+In 2006, the Brazilian Forest Service (SFB) was created to establish a very ambitious system of long-term logging concessions [@Brazil2006]. The goals are to provide a legal framework for sustainable timber production in Amazonian forests while reducing illegal logging. Forest concessions in the Brazilian Amazon currently cover only 1.6 million ha [@SFB2019], but the maximum potential area is estimated up to 60 million ha [@Bomfim2016]. The current timber production rate from established forest concessions is 221,000 m$^3$ per year, which is only 2% of the timber extracted from the region [@SFB2019]. Given that these concessions are to be managed with a 50 cm minimum cutting diameter (with the exception of *Swientenia macrophylla*: 60 cm) and a 25-35 year cutting cycle coupled with rising demand for wood products, the assessment of the expected timber production from these forests over the long term is warranted. 
 
-In 2006, the Brazilian Forest Service (SFB) was created to implement a very ambitious system of long-term logging concessions [@Brazil2006]. The concession system set up by the SFB aims to provide a legal framework for sustainable timber production in the Amazon while reducing illegal logging and concentrating Amazonian timber production within those concessions. Today Brazilian forest concessions cover 1.6 million ha in the Amazon, with a maximum potential area estimated at 60 million ha [@Bomfim2016]. The current timber production in Brazilian forest concessions is 221 thousand m$^3$ per year, representing only 2% of the timber extracted in the Brazilian Amazon [@SFB2019]. The forest management system remains based on selective logging and the capacity of natural production forests of the Amazon under concession to meet rising demands for wood products on a long-term basis must be questioned urgently.
-
-In this study we used an Amazon-wide timber recovery model developed by @Piponiot2019a to estimate the total timber volume that could be produced in Brazilian logging concessions under varying cycle lengths, logging intensities and pool of commercial species. We identified the conditions under which selective logging was sustainable from a timber production point of view and what its production capacity was in relation to the demand for wood. 
-
-First, this paper aims to assess which logging regimes (logging intensity and rotation length) are sustainable, i.e. are able to ensure a long-term and constant timber production in the Brazilian Amazon. Second, based on the characteristics of the identified sustainable logging regimes and the potential area of forest concessions in the Brazilian Amazon, we assess if the potential annual timber production is in adequacy with the present timber demand estimated at 11 Mm$^3$.yr$^{-1}$ [@Vidal2020;@SFB2019].
-
+In this paper we assess the timber yield sustainability of different logging intensities and harvest cycle durations from forest concessions in the Brazilian Amazon. We assess whether the potential annual timber production is adequate to meet the estimated present timber demand of 11 Mm$^3$.yr$^{-1}$ [@Vidal2020;@SFB2019].
 
 # Methods
 
@@ -407,38 +402,9 @@ graph <- ggplot(dftsust, aes(y=med_tsust, x = med_prodi/1e6)) +
        color = "Logging rules") + 
   scale_color_manual(values = colour_palette) +
   theme_bw() +
-  theme(legend.position = "none") +
-  guides(color = guide_legend(nrow=2))
+  theme(legend.position = "none") 
 
 ggpubr::ggarrange(graph, rules_legend, widths = c(9,4))
-```
-
-```{r temp}
-# ## subset to have only sustainable 
-# sust_simus <- subset(fin_prod, variable == "prop" & med >=0.95 & silvTreat == 0)
-# 
-# table(sust_simus$logCycle, sust_simus$logIntensity)
-# table(sust_simus$omega0)
-# table(sust_simus$silvTreat)
-# table(sust_simus$ppf)
-# 
-# sust_prodF <- subset(fin_prod, paste(ppf, simid) %in% paste(sust_simus$ppf, sust_simus$simid) & variable == "fin")
-# sust_prodF[, `:=`(value = paste0(signif(med, 2)/1e6, " (", 
-#                                  signif(lwr, 2)/1e6, "-",
-#                                  signif(upr, 2)/1e6, ")"), 
-#                   omega0 = paste0(omega0*100, "%"), 
-#                   silvTreat = c("no", "yes")[(silvTreat>0) + 1])]
-# sust_prodF <- dcast(sust_prodF, omega0 + logIntensity + logCycle + silvTreat ~ ppf)
-# sust_prodF90 <- subset(sust_prodF, omega0 == "90%")
-# max1 <- sust_prodF90[which.max(as.numeric(tstrsplit(current, " ")[[1]])), "current"]
-# max2 <- sust_prodF90[which.max(as.numeric(tstrsplit(potential, " ")[[1]])), "potential"]
-# sust_prodF50 <- subset(sust_prodF, omega0 == "50%")
-# max3 <- sust_prodF50[which.max(as.numeric(tstrsplit(current, " ")[[1]])), "current"]
-# max3b <- paste0(tstrsplit(max3, " ")[[1]], " (95% confidence interval: ", tstrsplit(max3, "\\(")[[2]])
-# max4 <- sust_prodF50[which.max(as.numeric(tstrsplit(potential, " ")[[1]])), "potential"]
-
-# After 200 years, `r nrow(sust_simus)` scenarios (out of 27) kept a constant total volume production. When 50% of the initial volume is composed of commercial species, the maximum volume produced is `r max3b` Mm$^3$ in current forest concessions and `r max4` Mm$^3$ in all potential concessions (i.e. all available public forests; Table \@ref(tab:sust-production)).
-# When 90% of the initial volume is composed of commercial species, `r max1` Mm$^3$ in current forest concessions and `r max2` Mm$^3$ in all potential concessions.
 ```
 
 
@@ -459,24 +425,31 @@ kable(dftsust[, c("omega0", "logIntensity", "logCycle", "Current", "Potential")]
       caption = "Sustainability of all 27 scenarios, characterized by the duration of constant timber production (yrs, last 2 columns). The first 3 columns correspond to the input variables: the proportion of commercial volume (%); logging intensity (m$^3$.ha${^-1}$); logging cycle length (yr). The 2 last columns are the duration of constant timber production in current concession areas and in all potential concessions, as the median value of all iterations, followed by the 95% credibility interval (between parentheses).")
 ```
 
-```{r timber-stocks-br, fig.height=6, fig.width = 10, fig.cap="Commercial volume stocks in all potential concession areas for all sustainable scenarios."}
-# dfvol_fig <- copy(dfvolume)
-# 
-# dfvol_fig$omega0 = factor(dfvol_fig$omega0)
-# levels(dfvol_fig$omega0) = paste0("omega0 = ", as.numeric(levels(dfvol_fig$omega0))*100,"%")
-# 
-# dfvol_fig$logrules <- paste("Cycle:", dfvol_fig$logCycle, "yrs; Intensity:", dfvol_fig$logIntensity, "m3/ha")
-# 
-# ggplot(dfvol_fig, aes(x=t, y = med/1e6)) + 
-#   geom_line(aes(colour = logrules)) +
-#   geom_ribbon(alpha = 0.2, colour = NA, 
-#               aes(fill = logrules, 
-#                   ymin = lwr/1e6, 
-#                   ymax = upr/1e6)) + 
-#   facet_grid(ppf~ omega0, scales = "free")  + 
-#   labs(x = "Time (yrs)", y = "Commercial volume (Mm3)") +
-#   theme_bw() + 
-#   theme(legend.position = "top") 
+```{r timber-stocks-br, fig.height=7, fig.width = 9, fig.cap="Commercial volume stocks in all potential concession areas for all sustainable scenarios."}
+dfsave$simid <- as.numeric(as.factor(paste(dfsave$omega0, dfsave$logCycle, dfsave$logIntensity, dfsave$ppf)))
+dfvolume$simid <- as.numeric(as.factor(paste(dfvolume$omega0, dfvolume$logCycle, dfvolume$logIntensity, dfvolume$ppf)))
+sust_simid <- dfsave$simid[dfsave$med_tsust>=500]
+dfvol_fig <- subset(dfvolume, simid %in% sust_simid)
+
+dfvol_fig$logrules <- paste("Cycle:", dfvol_fig$logCycle, "yrs; Intensity:", 
+                            dfvol_fig$logIntensity, "m3/ha; omega0:", 
+                            as.numeric(dfvol_fig$omega0)*100,"%")
+
+ggplot(subset(dfvol_fig, ppf=="potential"), aes(x=t, y = med/1e6)) +
+  geom_line(aes(colour = logrules)) +
+  geom_ribbon(alpha = 0.2, colour = NA,
+              aes(fill = logrules,
+                  ymin = lwr/1e6,
+                  ymax = upr/1e6)) +
+  # facet_wrap(~ ppf, scales = "free", nrow = 2)  +
+  labs(x = "Time aftre the first logging event (yrs)", y = bquote("Commercial volume (M"*m^3*")"), 
+       color = "Logging rules", fill = "Logging rules") +
+  theme_classic() +
+  theme(legend.position = "top") +
+  scale_x_continuous(expand = c(0, 0)) + 
+  scale_y_continuous(expand = c(0, 0)) +
+  guides(color = guide_legend(nrow=4))
+ggsave("fig-sustainability-vol.pdf")
 ```
 
 

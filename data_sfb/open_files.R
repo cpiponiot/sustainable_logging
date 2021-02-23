@@ -10,7 +10,7 @@ all_flor <- spTransform(all_flor, CRS("+proj=longlat +datum=WGS84"))
 
 ## subset to get only areas available for concessions
 all_flor <- all_flor[all_flor$protecao == "USO SUSTENTAVEL" & 
-                       grepl("Amaz", all_flor$bioma) &
+                       grepl("Amaz", all_flor$bioma) & 
                        all_flor$comunitari == "NAO", ]
 ## clean area names
 all_flor$name <- gsub("Ã\u0081|Ãƒ|Ã£", "A", all_flor$nome)
