@@ -71,9 +71,9 @@ if (!file.exists("data/pconcessions.Rdata")) {
 } else load("data/pconcessions.Rdata")
 ```
 
-Our study focuses on the Brazilian forest concessions. These concessions are located in public forests and currently cover an area of 1.6 Mha in the Brazilian Amazon, of which 1.05 Mha are concessions, managed by the SFB, and 0.6 Mha are managed by state-level agencies [@SFB2019]. We retrieved the map of current concessions and the map of all public forests from the Brazilian Forest Service and IDEFLOR websites [@SFB2020;@SFB2019a;@IDEFLOR2020]. We defined the area of all potential concessions as the area of all public forests that (i) are in the Brazilian Amazon biome, (ii) are designated for sustainable use, and (iii) are not community forests, indigenous territories or military areas [as defined in @SFB2019, p. 112; Figure \@ref(fig:map-brazil-concess)]. 
+Our study focuses on forest concessions in the Brazilian Amazon (Fig. \@ref(fig:map-brazil-concess)). These concessions are located in public forests and currently cover 1.6 Mha, of which 1.05 Mha are managed by the SFB, and 0.6 Mha are managed by state-level agencies [@SFB2019]. We defined the area of all potential concessions as the area of all public forests that (i) are in the Brazilian Amazon biome, (ii) are designated for sustainable use, and (iii) are not community forests - although community forest management is legal and currently cover around 260.000 ha [@Miranda2020], indigenous territories or military areas (as defined in @SFB2019, p. 112; Fig. \@ref(fig:map-brazil-concess)]. Based on this definition, the potential concession area in the Brazilian Amazon cover an estimated of 35 Mha. This area is lower than the 60 Mha estimated by @Bomfim2016; xxx explanation. 
 
-```{r map-brazil-concess, fig.height = 5, fig.width = 8, fig.cap="Plot of Brazilian Amazon forest concessions. Current federal concessions are in red; potential concessions (public forests designated for sustainable use) are in blue."}
+```{r map-brazil-concess, fig.height = 5, fig.width = 8, fig.cap = "Forest concessions in the Brazilian Amazon. Current federal concessions are in red; potential concessions (public forests designated for sustainable use) are in blue [retrieved from Brazilian Forest Service and IDEFLOR websites [@SFB2020;@SFB2019a;@IDEFLOR2020]]."}
 concessions <- rgdal::readOGR(dsn = "data_sfb/final", layer = "BRconc")
 concessions$ppf <- "current"
 flopub <- rgdal::readOGR(dsn = "data_sfb/final", layer = "BRflopub")
@@ -124,25 +124,23 @@ locations$pFlona <- locations$pFlona*pi
 
 ## The VDDE model 
 
-In this study we used the volume dynamics with differential equations (VDDE) model [@Piponiot2018]. 
-The VDDE model focuses on the total volume, i.e. the volume of all live trees with diameter at breast height (DBH) $\geq$ 50 cm (the standard minimum cutting size in the Amazon Basin). By contrast, only a portion of this volume is composed of commercial species and will be referred to as commercial volume. Two variables are explicitly modelled: the total volume and the proportion of commercial volume $\omega$, from which the commercial volume can be inferred. 
+In this study we used the volume dynamics with differential equations model (VDDE) [@Piponiot2018]. The VDDE model calculates the volume of all live trees $\geq$ 50 cm diameter at breast height (DBH), the standard minimum cutting size in the Brazilian Amazon. The portion of this volume composed of commercial species is referred to as the commercial volume.
 
-In this study, we defined three input variables, that can be set for each simulation: the logging intensity, the logging cycle length, and the initial proportion of commercial volume $\omega_0$. Low values of $\omega_0$ represent highly selective logging where only the most valuable species are logged; by contrast, high values of $\omega_0$ mean that most species are logged. 
-Other parameters of the VDDE model are **spatially defined** at a 1$^\circ$ resolution. The model was calibrated at the Amazon Basin scale in a Bayesian framework with data from 3500 ha of forest plots, among which 845 ha are from 15 sites monitored for as long as 30 years after being subjected to selective logging [@Sist2015;@Piponiot2019a]. This means that predictions of commercial volume recovery depend on the location, and show some spatial variability across the Amazon Basin [@Piponiot2019a]. 
+The input variables set for each simulation are logging intensity, logging cycle length, and the initial proportion of the volume that is commercial ($\omega_0$). Low values of $\omega_0$ represent highly selective logging where only the most valuable species are harvested whereas high values mean that most species are logged. Other parameters of the VDDE model are spatially defined at a 1$^\circ$ resolution. The model was calibrated for the Amazon Basin with a Bayesian framework with data from 3500 ha of forest plots, among which 845 ha are from 15 sites monitored for as long as 30 years after selective logging [@Sist2015;@Piponiot2019a]. Predictions of commercial volume recovery rates thereby vary with location.
 
-Each logging cycle is composed of two steps: (i) the logging itself is a function of the logging intensity and the characteristics of the forest; and (ii) the post-logging volume recovery phase is a function of the logging cycle length, and of the characteristics of the forest. The logging lowers the total volume and the proportion of commercial volume. The total volume and proportion of commercial species then increase during the recovery phase [@Piponiot2019a]. These two steps are sequentially repeated to simulate 200 years of logging cycles. 
+Each logging cycle includes the harvest itself as a function of logging intensity and forest characteristics and the post-logging volume recovery phase, which varies with logging cycle length and forest characteristics. Logging lowers both the total volume and the proportion of commercial volume, but both then increase during the recovery phase, although the proportion of commercial volume takes longer to recover because it relies solely on the recruitment of trees < 50 cm DBH [@Piponiot2019a]. These two steps are sequentially repeated to simulate 1000 years of logging.
 
-Errors are propagated by drawing all parameter values from their calibrated distribution [from @Piponiot2019a], and simulating logging cycles with these parameter values. This process is repeated 100 times and summary statistics (median and 95% credibility interval) are calculated at each time step.  
+The results are then multiplied by the area of current or potential concessions in each 1$^\circ$ pixel, and by a factor $\pi \sim \mathcal{Beta}(8.2, 5.9)$ between 0 and 1, with a mean value of 58%. This factor $\pi$, which was calibrated with data from logging concessions in French Guiana, reflects the ratio between logged areas and the initially allocated areas, mostly because of slope restrictions and riparian reserves, but also heavy forest degradation because of illegal logging and other disturbances [@Verissimo2006;@Piponiot2019a]. 
+
+Uncertainties are propagated throughout the model by drawing all parameter values from their calibrated distribution [from @Piponiot2019a], and simulating logging cycles with these parameter values. This process is repeated 100 times and summary statistics (medians and 95% credibility intervals) are calculated at each time step.
 
 ## Testing scenarios
 
-In this study we tested 27 different scenarios by using all combinations of the following inputs: (i) initial proportion of commercial volume: 20% (highly selective), 50% (intermediate) or 90% (not selective); (ii) logging intensity: 10 m$^3$.ha$^{-1}$ (low), 20 m$^3$.ha$^{-1}$ (intermediate) or 30 m$^3$.ha$^{-1}$ (high); (iii) length of cutting cycles: 20 years (short), 35 years (intermediate) or 60 years (long). These scenarios are then applied to 2 different definitions of concessions area: the area of current concessions, or the area of all potential concessions (see section: "Study areas"). 
+We tested 27 different scenarios by using combinations of the following inputs: (i) initial proportion of commercial volume: 20% (highly selective), 50% (intermediate) or 90% (non-selective); (ii) logging intensity: 10 m3.ha-1 (low), 20 m$^3$.ha$^{-1}$ (intermediate) or 30 m$^3$.ha$^{-1}$ (high); (iii) cutting cycle length: 20 years (short), 35 years (intermediate) or 60 years (long). These scenarios are then applied to the current area of concessions and to the area of all potential concessions (see “Study areas”).
 
-For each scenario we simulated 1000 years of logging cycles, and determined the duration of constant production $tsust$, i.e. the time when timber stocks are not sufficient to maintain a constant timber production (Figure \@ref(fig:illust-sust-log)).
-<!-- , with a 5% tolerance. -->
-<!-- To do so, we assessed the timber extraction over all logged forests (either current or potential concessions) at each logging cycle; $tsust$ corresponds to the time when the median extracted timber (over all 100 iterations) is lower or equal to 95% of the target logging intensity.  -->
+For each scenario we simulated 1000 years of logging cycles, and determined the duration of maintained timber production, i.e. the time before timber stocks become insufficient to maintain a constant timber production as illustrated in Fig. \@ref(fig:illust-sust-log). This maintained production is different from sustained timber production which theoretically shows a constant timber yield and stock over time (Fig. \@ref(fig:illust-sust-log)).
 
-```{r illust-sust-log, fig.height = 4, fig.width = 8, fig.cap = "Illustration of the duration of constant production. The x-axis represents the time since the first logging event, and the y-axis represents the evolution of commercial volume as simulated by the model with a logging intensity of 10 m$^3$.ha$^{-1}$ and a logging cycle of 60 years. At each logging event, the commercial volume decreases because of timber harvests (blue segments). If the logging cycles are not long enough to recover its pre-logging value, the commercial volume decreases until it is not sufficient to maintain a constant production (red segments). The time taken to reach this limit is the duration of constant production."}
+```{r illust-sust-log, fig.height = 4, fig.width = 8, fig.cap = "Illustration of the duration of maintained and sustained timber production. The x-axis represents years after the first selective harvest, and the y-axis represents commercial volumes as simulated by the model with a logging intensity of 10 m$^3$.ha$^{-1}$ and a logging cycle of 60 years. At each harvest, commercial volumes decrease (blue segments). If logging cycles are not long enough to allow recovery, the commercial volume decreases until it is not sufficient to maintain a constant production (10, 20 or 30 m$^3$.ha$^{-1}$, red segments). The time taken to reach this limit is the duration of the maintained production. In the sustained timber production, both timber yield and stocks remain constant."}
 logCyc = 60
 logInt = 10
 
@@ -163,7 +161,17 @@ dfcycle[, pl := c(pl[-1], NA)]
 dfvext = subset(dfsimu, variable=="vextReal")
 tsust = max(dfvext[value==logInt, "ncycle"])*logCyc
 
+## 'sustainable logging'
+slope = (dfvol[ncycle==2&trec==60]$vcom-dfvol[ncycle==2&trec==1]$vcom)/59
+interc = dfvol[ncycle==2&trec==1]$vcom - 61*slope
+lsust = (dfvol[ncycle==1&trec==60]$vcom-interc)/slope - 61
+
+dfsust = data.frame(x = lsust*c(0, rep(1:5, each = 2)) + 61 + rep(1:5,each = 2)[1:11], 
+                    y = rep(c(dfvol[ncycle==2&trec==1]$vcom, 
+                              dfvol[ncycle==1&trec==60]$vcom), 8)[1:11])
+  
 ggplot() +
+  geom_line(data = dfsust, aes(x=x, y=y)) +
   geom_vline(xintercept = tsust, lty = 2) + 
   geom_line(data = dfvol, aes(x = trec+logCyc*(ncycle-1), y = vcom)) + 
   geom_segment(data = dfcycle, 
@@ -172,16 +180,18 @@ ggplot() +
   geom_segment(data = subset(dfcycle, ncycle >= max(dfvext[value==logInt, "ncycle"])), 
                aes(x = logCyc*ncycle, xend = logCyc*ncycle+1, 
                    yend = pl, y = pr), col = 2, lwd = 1) + 
-  annotate(geom = "segment", x = 0, xend = tsust, y = 54, yend = 54,
+  annotate(geom = "segment", x = 0, xend = tsust, y = 57, yend = 57,
            arrow = arrow(length = unit(0.2, "cm"), ends = "both")) +
-  annotate(geom = "text", x = c(500, 800, 350), y = c(25, 8, 52), col = c(4,2, 1),
-           label = c("Constant\nproduction", "Timber depletion", 
-                     "Duration of constant production (tsust)")) +
-  labs(x = "Time (yr)", y = "Commercial volume") + 
+  annotate(geom = "text", x = c(500, 820, 820, 350), y = c(25, 10, 45, 59), 
+           col = c(4,2, 1, 1),
+           label = c("Maintained\nproduction", "Timber depletion", 
+                     "Sustained timber\nproduction",
+                     "Duration of maintained production (tsust)")) +
+  labs(x = "Time after first logging event (yr)", y = "Commercial volume") + 
   theme_classic() + 
   scale_x_continuous(expand = c(0, 0)) + 
   scale_y_continuous(expand = c(0, 0)) +
-  expand_limits(y = c(0,55))
+  expand_limits(y = c(0,60))
 ``` 
 
 ```{r define-simulations}
