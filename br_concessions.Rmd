@@ -11,7 +11,7 @@ bibliography: myBiblio.bib
 knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, results='hide', 
                       root.dir = rprojroot::find_rstudio_root_file())
 # load libraries
-packages_needed <- c("knitr", "data.table", "ggplot2", "parallel", "sp", "truncnorm", "tmap")
+packages_needed <- c("knitr", "data.table", "ggplot2", "parallel", "sp", "truncnorm", "tmap", "latex2exp")
 packages_to_install <- packages_needed[!( packages_needed %in% rownames(installed.packages()))]
 if (length(packages_to_install) > 0)
   install.packages(packages_to_install)
@@ -81,7 +81,7 @@ flopub <- rbind(flopub, concessions)
 map.samerica <- rgdal::readOGR("D:/Mes Donnees/maps/borders/South_America", "South_America")
 map.samerica <- raster::crop(map.samerica, raster::extent(-85,-33,-56,13))
 nb_region = sf::st_as_sfc(sf::st_bbox(c(xmin = -74, xmax = -44, ymin = -11, ymax = 5),
-                    crs = sf::st_crs(map.samerica)))
+                                      crs = sf::st_crs(map.samerica)))
 conc_map = tm_shape(map.samerica, bbox = nb_region) +  ## maybe just subset world map
   tm_polygons(alpha = 0) +
   tm_shape(flopub) +
@@ -169,7 +169,7 @@ lsust = (dfvol[ncycle==1&trec==60]$vcom-interc)/slope - 61
 dfsust = data.frame(x = lsust*c(0, rep(1:5, each = 2)) + 61 + rep(1:5,each = 2)[1:11], 
                     y = rep(c(dfvol[ncycle==2&trec==1]$vcom, 
                               dfvol[ncycle==1&trec==60]$vcom), 8)[1:11])
-  
+
 ggplot() +
   geom_line(data = dfsust, aes(x=x, y=y)) +
   geom_vline(xintercept = tsust, lty = 2) + 
@@ -394,7 +394,11 @@ rules_legend <- ggplot(df_rules, aes(x=logIntensity, y=as.factor(logCycle),
 dftsust <- merge(dftsust, df_rules, by = c("logIntensity", "logCycle"))
 dftsust$ppf = factor(dftsust$ppf)
 levels(dftsust$ppf) = c("Current concessions", "Potential concessions")
-dftsust$omega0 = paste0("omega0 = ", dftsust$omega0*100, "%")
+
+omega.labs <- c(`0.2`= 'omega[0] == 20*"%"', 
+                `0.5`= 'omega[0] == 50*"%"', 
+                `0.9`= 'omega[0] == 90*"%"')
+
 ## objective production line only on 2nd facet
 add_objProd <- data.frame(ppf="Potential concessions", pos = c(125, 700, 700),
                           omega0 = unique(dftsust$omega0),
@@ -403,10 +407,10 @@ add_objProd <- data.frame(ppf="Potential concessions", pos = c(125, 700, 700),
 graph <- ggplot(dftsust, aes(y=med_tsust, x = med_prodi/1e6)) +
   geom_vline(data = add_objProd, aes(xintercept = obj), lty=2) +
   geom_text(data = add_objProd, aes(x = obj+1, y = pos, label = text), angle = 90) +
-  # ggrepel::geom_text_repel(aes(label = logRules), col = 1) +
   geom_pointrange(aes(ymin=lwr_tsust, ymax=upr_tsust, color = logRules)) +
   geom_errorbarh(height = 0, aes(xmin = lwr_prodi/1e6, xmax = upr_prodi/1e6, color = logRules)) +
-  facet_grid(omega0 ~ ppf, scales = "free") +
+  facet_grid(omega0 ~ ppf, scales = "free", 
+             labeller = labeller(omega0 = as_labeller(omega.labs, label_parsed))) +
   labs(x = bquote("Annual timber production (M"* m^3*.*yr^-1*")"), 
        y = "Duration of constant production (yrs)", 
        color = "Logging rules") + 
@@ -419,10 +423,11 @@ ggpubr::ggarrange(graph, rules_legend, widths = c(9,4))
 
 
 ```{r sust-production, results = "asis"}
+dftsust$omega0 = paste0("omega0 = ", dftsust$omega0*100, "%")
 dfsave = copy(dftsust)
-dftsust[, lab_tsust := paste0(gsub("1000", "1000+", med_tsust), 
+dftsust[, lab_tsust := paste0(gsub("1000", ">1000", med_tsust), 
                               " yr (", lwr_tsust, "-", 
-                              gsub("1000", "1000+", upr_tsust), ")")]
+                              gsub("1000", ">1000", upr_tsust), ")")]
 dftsust[, omega0 := gsub("omega0 = ", "", omega0)]
 dftsust[, ppf := gsub(" concessions", "", ppf)]
 dftsust[, logIntensity := paste(logIntensity, "m3/ha")]
@@ -435,45 +440,48 @@ kable(dftsust[, c("omega0", "logIntensity", "logCycle", "Current", "Potential")]
       caption = "Sustainability of all 27 scenarios, characterized by the duration of constant timber production (yrs, last 2 columns). The first 3 columns correspond to the input variables: the proportion of commercial volume (%); logging intensity (m$^3$.ha${^-1}$); logging cycle length (yr). The 2 last columns are the duration of constant timber production in current concession areas and in all potential concessions, as the median value of all iterations, followed by the 95% credibility interval (between parentheses).")
 ```
 
-```{r timber-stocks-br, fig.height=7, fig.width = 9, fig.cap="Commercial volume stocks in all potential concession areas for all sustainable scenarios."}
+```{r timber-stocks, fig.height=5, fig.width = 7, fig.cap="Commercial volume stocks in all potential concession areas for the 4 scenarios with a duration of maintained production > 500 years. The x-axis is the time after the first logging event (in years); the y-axis is the commercial volume stocks in all potential concession areas, in Mm$^3$. The colors represent the 4 scenarios, with the thick lines corresponding to the median and the shaded areas to the 95% credibility interval over all iterations."}
 dfsave$simid <- as.numeric(as.factor(paste(dfsave$omega0, dfsave$logCycle, dfsave$logIntensity, dfsave$ppf)))
 dfvolume$simid <- as.numeric(as.factor(paste(dfvolume$omega0, dfvolume$logCycle, dfvolume$logIntensity, dfvolume$ppf)))
 sust_simid <- dfsave$simid[dfsave$med_tsust>=500]
 dfvol_fig <- subset(dfvolume, simid %in% sust_simid)
 
-dfvol_fig$logrules <- paste("Cycle:", dfvol_fig$logCycle, "yrs; Intensity:", 
-                            dfvol_fig$logIntensity, "m3/ha; omega0:", 
-                            as.numeric(dfvol_fig$omega0)*100,"%")
+dfvol_fig$Scenario <- factor(paste("Cycle:", dfvol_fig$logCycle, "yrs; Intensity:", 
+                                   dfvol_fig$logIntensity, "m3/ha; omega0:", 
+                                   as.numeric(dfvol_fig$omega0)*100,"%"))
+levels(dfvol_fig$Scenario) <- c("35 yrs - 10 m$^3$.ha$^{-1}$ - $\\omega_0$ = 90%",
+                                "60 yrs - 10 m$^3$.ha$^{-1}$ - $\\omega_0$ = 50%",
+                                "60 yrs - 10 m$^3$.ha$^{-1}$ - $\\omega_0$ = 90%",
+                                "60 yrs - 20 m$^3$.ha$^{-1}$ - $\\omega_0$ = 90%")
 
 ggplot(subset(dfvol_fig, ppf=="potential"), aes(x=t, y = med/1e6)) +
-  geom_line(aes(colour = logrules)) +
+  geom_line(aes(colour = Scenario), lwd=1.5) +
   geom_ribbon(alpha = 0.2, colour = NA,
-              aes(fill = logrules,
+              aes(fill = Scenario,
                   ymin = lwr/1e6,
                   ymax = upr/1e6)) +
   # facet_wrap(~ ppf, scales = "free", nrow = 2)  +
-  labs(x = "Time aftre the first logging event (yrs)", y = bquote("Commercial volume (M"*m^3*")"), 
-       color = "Logging rules", fill = "Logging rules") +
+  labs(x = "Time after first logging event (yrs)", 
+       y = bquote("Commercial volume (M"*m^3*")")) +
   theme_classic() +
-  theme(legend.position = "top") +
+  theme(legend.position = c(0.75, 0.88)) +
   scale_x_continuous(expand = c(0, 0)) + 
   scale_y_continuous(expand = c(0, 0)) +
-  guides(color = guide_legend(nrow=4))
+  scale_color_discrete(labels=lapply(levels(dfvol_fig$Scenario), TeX)) +
+  guides(color = guide_legend(nrow=4), fill = FALSE)
 ggsave("fig-sustainability-vol.pdf")
 ```
 
+None of the scenarios with an initial commercial volume proportion of 20% are sustainable after the first logging cycle (Fig. \@ref(fig:tsust-vs-prodi); Table \@ref(tab:sust-production)). The present logging practices in the Brazilian Amazon usually correspond to a proportion of commercial species of < 20%, a mean logging intensity of 15-20 m$^3$.ha$^{-1}$ and a rotation cycle of 35 years. Under such rules, the timber production can be maintained only for a single cutting cycle (35 years, grey line in Table \@ref(tab:sust-production)). Scenarios with higher proportion of commercial timber show longer duration of maintained production: `r dftsust[logIntensity=="20 m3/ha" & logCycle=="35 yr" & omega0=="50%", "Potential"]` and `r dftsust[logIntensity=="20 m3/ha" & logCycle=="35 yr" & omega0=="90%", "Potential"]` when the prportion of commercial species is respectively 50% and 90%. 
 
-None of the scenarios with an initial proportion of commercial volume of 20% are sustainable after the first logging cycle (Figure \@ref(fig:tsust-vs-prodi); Table \@ref(tab:sust-production)). The present logging practices in the Brazilian Amazon with a proportion of commercial species not exceeding 20%, a mean logging intensity of 15-20 m$^3$.ha$^{-1}$ and a rotation cycle of 35 years are therefore not sustainable as there will be a significant decrease in timber production at the second cycle (< 20 m$^3$.ha$^{-1}$). 
+Only 4 out of all 27 scenarios (bold lines in Table \@ref(tab:sust-production)) have median durations of maintained production over 500 years, and only one is close to a sustained timber production *sensu stricto* (10 m$^3$.ha$^{-1}$ every 60 years with a 90% initial proportion of commercial timber species, Fig. \@ref(tab:timber-stocks)). Three of these scenarios have an initial proportion of commercial volume of 90%, and two correspond to low intensity logging (10 m$^3$.ha$^{-1}$) with a cutting cycle of 60 years (Table \@ref(tab:sust-production)). 
 
-Scenarios with a proportion of commercial volume of 50% show longer duration of constant production. The most sustainable one with a constant production of timber during `r dftsust[logIntensity=="10 m3/ha" & logCycle=="60 yr" & omega0=="50%", "Potential"]` allows a logging intensity of 10 m$^3$.ha$^{-1}$ every 60 years (Table \@ref(tab:sust-production); Figure \@ref(fig:tsust-vs-prodi)). Scenarios with a proportion of 90% of commercial species are among the most sustainable.
+<!-- The maximum duration of maintained production under rotation cycles of 35 years is `r dftsust[logIntensity=="10 m3/ha" & logCycle=="35 yr" & omega0=="50%", "Potential"]` if 50% of the volume is commercial, and `r dftsust[logIntensity=="10 m3/ha" & logCycle=="35 yr" & omega0=="90%", "Potential"]` if 90% of the volume is commercial (i.e. a truly sustainable production). -->
+<!-- It should be noted that these scenarios allow only low logging intensities (10 m$^3$.ha$^{-1}$) and a much higher proportion of commercial timber species than is currently observed. According to our simulations and considering the 95% credibility intervals, the most sustainable scenario (with the longest duration of maintained production and the slowest decline of timber stock) is the one with an initial proportion of 90% of commercial species and a logging intensity of 10 m3.ha-1 at 60 year intervals (Table 1, Figure 4). -->
 
-Only 4 out of all 27 scenarios have a median duration of constant production greater or equal to 500 years which can be considered as sustainable *sensu stricto*. Three of these scenarios have an initial proportion of commercial volume of 90%, and two correspond to low intensity logging (10 m$^3$.ha$^{-1}$) with a rotation cycle of 60 years (Table \@ref(tab:sust-production)). Logging regulations in the Brazilian Amazon include minimum logging cycles of 35 years. Under these regulations, the duration of constant production is `r dftsust[omega0=="50%"&logCycle=="35 yr"&logIntensity=="10 m3/ha"][, "Potential"]` if 50% of the volume is commercial, and `r dftsust[omega0=="90%"&logCycle=="35 yr"&logIntensity=="10 m3/ha"][, "Potential"]` if 90% of the volume is commercial (i.e. a true sustainable production). However these scenarios imply low logging intensities of 10 m$^3$.ha$^{-1}$ and a higher proportion of commercial timber species than in the present. According to our simulations and considering the 95% credibility interval, the most sustainable scenario is the one with an initial proportion of 90% of commercial species allowing a logging intensity of 10 m$^3$.ha$^{-1}$ every 60 years (Table \@ref(tab:sust-production)).
+The current timber production from the Brazilian Amazon is around 11 Mm$^3$ per year [@Vidal2020;@SFB2019]. Current concessions cannot come close to satisfying this demand for even one cycle under any scenario (Fig. \@ref(fig:tsust-vs-prodi)). The maximum annual production from the current concession areas is 1.43 Mm$^3$.yr$^{-1}$, which can only be reached under the most intensive scenarios: 30 m$^3$.ha$^{-1}$ of timber extracted every 20 years, with an initial proportion of commercial timber $\geq$ 50% (Fig. \@ref(fig:tsust-vs-prodi)). Under such conditions, the maximum duration of maintained production is `r dftsust[logIntensity=="30 m3/ha" & logCycle=="20 yr" & omega0=="90%", "Current"]` (Table \@ref(tab:sust-production)). Under the present harvesting practices of 20 m$^3$.ha$^{-1}$ every 35 years with only 20% of the volume of trees $\geq$ 50 cm DBH of commercial species, the annual production from the first harvest is only 473,000 m$^3$ and the production will not be maintained after the first cutting cycle (35 years). Finally, with the current concession area, the longest maintained timber production (780 years) reaches 317.000 m$^3$ under an extraction rate of 20 m$^3$.ha$^{-1}$ every 60 years with a 90% proportion of commercial species (Fig. \@ref(fig:tsust-vs-prodi)).
 
-
-The current timber production in the Amazon is around 11 Mm$^3$ per year [@Vidal2020;@SFB2019]. Current concessions are not able to satisfy this demand alone for more than one cutting cycle (Figure  \@ref(fig:tsust-vs-prodi)). The maximum production under the current concession areas is `r signif(dfsave[logRules=="HS"&ppf=="Current concessions"&omega0=="omega0 = 90%", "med_prodi"], 3)/1e6` Mm$^3$ only during the first harvesting and a proportion of commercial species of 90%. Under the present practices (20 m$^3$.ha$^{-1}$) every 35 years and 20% of commercial species), the annual production during the first harvest reach `r signif(dfsave[logRules=="MM"&ppf=="Current concessions"&omega0== "omega0 = 20%","med_prodi"], 2)/1e6` Mm$^3$ only. Finally, under current concession area four scenarios can be considered as sustainable (duration of constant production > 500 years). The highest sustainable production is recorded under an extraction rate of 20 m$^3$.ha$^{-1}$ every 60 years with a 90% proportion of commercial species (Figure \@ref(fig:tsust-vs-prodi)).
-
-When considering all potential concession areas (35 Mha), the annual production of 11 Mm$^3$.yr$^{-1}$ could be sustained at best during `r dftsust[omega0=="90%"& logCycle=="35 yr"&logIntensity=="20 m3/ha"][, "Potential"]` following a scenario with 90% of commercial species, a logging intensity of 20 m$^3$.ha$^{-1}$  and a rotation cycle of 35 years (Figure \@ref(fig:tsust-vs-prodi); Table 1). There are two others scenarios close to 11 Mm$^3$ with a sustained duration of 250 years (Figure \@ref(fig:tsust-vs-prodi)), with a logging intensity of 10 and 30 m$^3$.ha$^{-1}$ and a logging cycle length of 20 and 60 years, respectively. 
-
+When considering all potential concession areas (35 Mha), the annual production of 11 Mm$^3$.yr$^{-1}$ could be maintained, at best, for 175 yr (35-350) if 90% of the volume is commercial, logging intensity is 20 m$^3$.ha$^{-1}$ and cutting cycles are 35 years (Fig. \@ref(fig:tsust-vs-prodi); Table \@ref(tab:sust-production)). The two others scenarios that yield close to 11 Mm$^3$ with a sustained duration of 250 years (Fig. \@ref(fig:tsust-vs-prodi)) use logging intensities of 10 and 30 m3.ha-1 and logging cycles of 20 and 60 years, respectively. Under current rules (20 m$^3$.ha$^{-1}$ every 35 years and 20% proportion of commercial timber) the total annual production is 10Mm$^3$.yr$^{-1}$ but the sustained timber production will be only for 35 years, which means that this production can be sustained only for two cutting cycles (Figure 3).
 
 # Discussion
 
