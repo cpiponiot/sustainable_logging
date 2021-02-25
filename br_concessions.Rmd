@@ -4,7 +4,9 @@ output:
   bookdown::word_document2:
   fig_caption: yes
   keep_md: true
+  reference_docx: IPM_template_v2.docx
 bibliography: myBiblio.bib
+csl: forest-ecology-and-management.csl
 ---
 
 ```{r setup, include=FALSE}
@@ -450,9 +452,9 @@ flextable(dftab, col_keys = c("omega0", "logIntensity", "logCycle", "Potential")
   ) %>%
   theme_vanilla() %>%
   set_header_labels(values = list(omega0 = "Comm. volume",
-                                  logIntensity = "Log. intensity",
-                                  logCycle = "Log. cycle",
-                                  Potential = "Duration of maintained prod.")) %>%
+                                  logIntensity = "Logging intensity",
+                                  logCycle = "Logging cycle",
+                                  Potential = "Duration of maintained production")) %>%
   flextable::set_caption("Sustainability of all 27 scenarios, characterized by the duration of constant timber production (yrs, last 2 columns). The first 3 columns correspond to the input variables: the proportion of commercial volume (%); logging intensity (m$^3$.ha$^{-1}$); logging cycle length (yr). The last column is the duration of constant timber production in potential concession areas, as the median value of all iterations, followed by the 95% credibility interval (between parentheses).") %>%
   flextable::bold(i = rows_bold) %>%
   bg(i = row_current, bg = "lightgrey") %>%
@@ -508,7 +510,7 @@ When considering all potential concession areas (35 Mha), the annual production 
 
 According to the results of our simulations, several challenges need to be addressed to achieve sustainable timber production in concession systems in the Brazilian Amazon. The first and simplest solution could be to lengthen minimum logging cycles and reduce maximum logging intensities, in order to get closer to our scenario with 10 m$^3$.ha$^{-1}$ of timber harvested every 60 years.
 
-Changing the harvest limits would begin to address the sustained yields question, but would also decrease the annual timber production for the same area. Moreover, even the most intensive scenarios, the area of current concessions is obviously insufficient to reach an annual production of 11 Mm$3^$.yr$^{-1}$. Increasing the area of concessions is thus a priority if concessions are to meet the timber demand for the Amazon. *increasing the area of concessions: current trends, challenges and opportunities? *
+Changing the harvest limits would begin to address the sustained yields question, but would also decrease the annual timber production for the same area. Moreover, even the most intensive scenarios, the area of current concessions is obviously insufficient to reach an annual production of 11 Mm$^3$.yr$^{-1}$. Increasing the area of concessions is thus a priority if concessions are to meet the timber demand for the Amazon. *increasing the area of concessions: current trends, challenges and opportunities? *
 However, even when the 35 Mha of the potential concession area of 35 Mha show strong limitation to ensure an annual sustainable production of 11 Mm$^3$ on a long term basis as our simulations suggest that this production can be sustained for at best 170 years with a 90% proportion of commercial species.
 
 The last, and probably the most important challenge is to increase the list of commercial species to harvest at least 50% of the volume from trees $\geq$ 50 cm DBH, and ideally 90%. The study from @Piponiot2019 showed that by considering all species that have been registered as commercial at least once, 80-95% of the volume trees $\geq$ 50 cm DBH in a network of plots covering the Brazilian Amazon could have commercial value [@radam]. This result is encouraging, but it could mean that in the list of commercial species, some may have lower mechanical properties and market prices than the high-value species that were harvested in the first logging cycle. The harvesting and valuation of these new species must involve drastic changes in the entire wood supply chain. One of the first barriers is at the sawmill level: processing a large variety of species with different mechanical properties can pose some technical challenges for sawmills [REF]. In addition, only about 40% of the volume entering the sawmill is processed into lumber, and most of the remaining material is burned or left unused [@Pereira2010;@DeLima2020]. Improving the efficiency and diversification of sawmills could therefore help to meet the demand for wood in the Amazon. Changing consumer habits is also a powerful lever to increase the commercial value of some lesser-known wood species, and has been the goal of some advertising campaigns by environmental NGOs [@FSC2016]. 
