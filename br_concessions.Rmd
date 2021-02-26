@@ -1,10 +1,48 @@
 ---
 title: "Sustainability of Brazilian forest concessions"
+author:
+  - Plinio Sist:
+      email: plinio.sist@cirad.fr
+      institute: [fs,co]
+      correspondence: true
+  - Camille Piponiot:
+      institute: [fs,co] 
+  - Milton Kanashiro:
+      institute: [embrapa] 
+  - Lucas Mazzei:
+      institute: [embrapa] 
+  - Marielos Pena-Claros:
+      institute: [wagen] 
+  - Francis E Putz:
+      institute: [flo] 
+  - Ademir R Ruschel:
+      institute: [embrapa]  
+  - Mark Schulze:
+      institute: [ore] 
+  - Alberto Verissimo:
+      institute: [imazon]
+  - Edson Vidal:
+      institute: [usp] 
+
+institute:
+  - fs: UR Forests and Societies, Cirad, Université de Montpellier, Montpellier, France
+  - embrapa: Embrapa Amazônia Oriental, Belém, Brazil
+  - wagen: Forest Ecologyand Forest Management Group, Wageningen University, Wageningen, The Netherlands
+  - flo: Department of Biology, University of Florida, Gainesville, United States of America
+  - ore: Oregon State University, Blue River, United States of America
+  - imazon: Institute for People and the Environment of Amazonia, IMAZON, Belém, Brazil
+  - usp: Department of Forest Sciences, "Luiz de Queiroz” College of Agriculture, University of São Paulo, Piracicaba, Brazil
+  - co: Contributed equally to this work
+
+journal: "Forest Ecology and Management"
 output: 
   bookdown::word_document2:
+    pandoc_args:
+      - '--lua-filter=common/scholarly-metadata.lua'
+      - '--lua-filter=common/author-info-blocks.lua'
+    reference_docx: word-styles-ref-01.docx
+    number_sections: true
   fig_caption: yes
-  keep_md: true
-  reference_docx: IPM_template_v2.docx
 bibliography: myBiblio.bib
 csl: forest-ecology-and-management.csl
 ---
@@ -27,6 +65,14 @@ sapply(file.sources, source, .GlobalEnv)
 if (!dir.exists("cache"))
   dir.create("cache")
 ```
+
+---
+
+# Abstract {-}
+
+Insert abstract here
+
+---
 
 # Introduction
 
@@ -74,7 +120,7 @@ if (!file.exists("data/pconcessions.Rdata")) {
 } else load("data/pconcessions.Rdata")
 ```
 
-Our study focuses on forest concessions in the Brazilian Amazon (Figure\@ref(fig:map-brazil-concess)). These concessions are located in public forests and currently cover 1.6 Mha, of which 1.05 Mha are managed by the SFB, and 0.6 Mha are managed by state-level agencies [@SFB2019]. We defined the area of all potential concessions as the area of all public forests that (i) are in the Brazilian Amazon biome, (ii) are designated for sustainable use, and (iii) are not community forests - although community forest management is legal and currently cover around 260.000 ha [REF: Miranda 2020], indigenous territories or military areas (as defined in @SFB2019, p. 112; Figure\@ref(fig:map-brazil-concess)]. Based on this definition, the potential concession area in the Brazilian Amazon cover an estimated of 35 Mha. This area is lower than the 60 Mha estimated by @Bomfim2016; xxx explanation. 
+Our study focuses on forest concessions in the Brazilian Amazon (Figure\@ref(fig:map-brazil-concess)). These concessions are located in public forests and currently cover 1.6 Mha, of which 1.05 Mha are managed by the SFB, and 0.6 Mha are managed by state-level agencies [@SFB2019]. We defined the area of all potential concessions as the area of all public forests that (i) are in the Brazilian Amazon biome, (ii) are designated for sustainable use, and (iii) are not community forests - although community forest management is legal and currently cover around 260.000 ha [REF: Miranda 2020], indigenous territories or military areas (as defined in @SFB2019, p. 112; Figure\@ref(fig:map-brazil-concess)]. Based on this definition, the potential concession area in the Brazilian Amazon cover an estimated of 35 Mha. This area is lower than the 60 Mha estimated by @Bomfim2016; **explanation?**. 
 
 ```{r map-brazil-concess, fig.height = 5, fig.width = 8, fig.cap = "Forest concessions in the Brazilian Amazon. Current federal concessions are in red; potential concessions (public forests designated for sustainable use) are in blue [retrieved from Brazilian Forest Service and IDEFLOR websites [@SFB2020;@SFB2019a;@IDEFLOR2020]]."}
 concessions <- rgdal::readOGR(dsn = "data_sfb/final", layer = "BRconc")
@@ -504,25 +550,25 @@ When considering all potential concession areas (35 Mha), the annual production 
 
 # Discussion
 
--	methods: optimistic hypotheses -> to be considered when interpreting results -> Camille
-- plots with some form of RIL (similar to concession system: good) 
-- long recovery of 
+The VDDE model is well suited to study timber recovery in forest concessions throughout the Brazilian Amazon. The data used to calibrate the model comes from an extensive network of plots covering the Amazon basin, most of which have been logged with some form of reduced impact logging techniques (skid trail planning, directional felling, vine cutting, etc.) [@Sist2015], similar to what is done in Brazilian logging concessions [REF]. It is important to note, however, that we have not included in our scenarios the potential effect of climate change-related disturbances such as fires and droughts, despite the likelihood of their future increase in the region [@Davidson2012]. Our results are therefore likely to be relatively optimistic, and correspond to the potential productivity of wood under the most favourable conditions. 
 
 According to the results of our simulations, several challenges need to be addressed to achieve sustainable timber production in concession systems in the Brazilian Amazon. The first and simplest solution could be to lengthen minimum logging cycles and reduce maximum logging intensities, in order to get closer to our scenario with 10 m$^3$.ha$^{-1}$ of timber harvested every 60 years.
 
-Changing the harvest limits would begin to address the sustained yields question, but would also decrease the annual timber production for the same area. Moreover, even the most intensive scenarios, the area of current concessions is obviously insufficient to reach an annual production of 11 Mm$^3$.yr$^{-1}$. Increasing the area of concessions is thus a priority if concessions are to meet the timber demand for the Amazon. *increasing the area of concessions: current trends, challenges and opportunities? *
+Changing the harvest limits would begin to address the sustained yields question, but would also decrease the annual timber production for the same area. Moreover, even the most intensive scenarios, the area of current concessions is obviously insufficient to reach an annual production of 11 Mm$^3$.yr$^{-1}$. Increasing the area of concessions is thus a priority if concessions are to meet the timber demand for the Amazon. **increasing the area of concessions: current trends, challenges?**
 However, even when the 35 Mha of the potential concession area of 35 Mha show strong limitation to ensure an annual sustainable production of 11 Mm$^3$ on a long term basis as our simulations suggest that this production can be sustained for at best 170 years with a 90% proportion of commercial species.
 
 The last, and probably the most important challenge is to increase the list of commercial species to harvest at least 50% of the volume from trees $\geq$ 50 cm DBH, and ideally 90%. The study from @Piponiot2019 showed that by considering all species that have been registered as commercial at least once, 80-95% of the volume trees $\geq$ 50 cm DBH in a network of plots covering the Brazilian Amazon could have commercial value [@radam]. This result is encouraging, but it could mean that in the list of commercial species, some may have lower mechanical properties and market prices than the high-value species that were harvested in the first logging cycle. The harvesting and valuation of these new species must involve drastic changes in the entire wood supply chain. One of the first barriers is at the sawmill level: processing a large variety of species with different mechanical properties can pose some technical challenges for sawmills [REF]. In addition, only about 40% of the volume entering the sawmill is processed into lumber, and most of the remaining material is burned or left unused [@Pereira2010;@DeLima2020]. Improving the efficiency and diversification of sawmills could therefore help to meet the demand for wood in the Amazon. Changing consumer habits is also a powerful lever to increase the commercial value of some lesser-known wood species, and has been the goal of some advertising campaigns by environmental NGOs [@FSC2016]. 
 
-However, it is unlikely that consumers would be willing to pay high prices for these lesser-known wood species. This, combined with lower harvesting intensities, could hinder the profitability of selective harvesting. In addition, logging concession operators compete with illegal loggers who do not comply with official logging regulations and do not pay taxes, and can therefore sell their timber at low prices. The economic and ecological sustainability of logging is therefore closely linked to the enforcement of logging regulations and the fight against illegal logging. 
+However, consumers are unlikely to be willing to pay high prices for these lesser-known wood species. This, combined with lower harvest intensities, could hinder the profitability of selective harvesting. In addition, logging concession operators compete with illegal loggers who do not comply with official logging regulations and do not pay taxes, and can therefore sell their timber at low prices. The economic and ecological sustainability of logging is therefore closely linked to forest law enforcement and the fight against illegal logging. 
 
-- initiating a forest transition -> new ways of producing timber: plantations, active restoration, silviculture
+One of the main obstacles to timber recovery is that, in most cases, harvested species take a long time to recover because, in the absence of human intervention, individuals of other tree species, and in some cases lianas, can take advantage of the increased availability of light in logging gaps and replace the harvested species [REF]. For this reason, many silvicultural treatments have been developed to liberate future crop trees, for example by poisoning overtopping trees with no commercial value [REF]. These treatments have been shown to increase the recovery of commercial timber volume after felling, and can be carried out at reasonable prices [@Roopsind2018;@Mills2019]. However, these treatments are rarely applied in the tropics, **for reasons: cost? lack of expertise? insecurity of land tenure? etc ** [REF]. A better understanding of the potential effects of silvicultural treatments on a regional scale could therefore serve as a motivation for increased investment in these techniques. 
 
-One of the main barriers to timber recovery is that in most cases harvested species are long to recover because in the abscence of any human intervention, individual from other species, and in some cases lianas, can take advantage of increased light availability in logging gaps and replace those commercial species. [refs?]. For this reason, many silvicultural treatments have been developped to remove trees (or lianas) overtopping future crop trees, e.g. by poison girdling the overtopping tree [REF]. These treatments have been shown to increase post-logging timber recovery, and can sometimes be done at reasonable prices [@Roopsind2018;@Mills2019] [other refs]. These treatments have however rarely been applied in the tropics [REF], reasons xxx [REF]. There is thus a need to evaluate the potential of silvicultural treatments for increasing timber production in forest concessions. 
-
-
+- **initiating a forest transition -> new ways of producing timber: plantations, active restoration, silviculture**
 
 
 
-# References
+
+# Acknowledgements {-}
+
+
+# References {-}
