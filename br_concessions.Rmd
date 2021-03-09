@@ -420,7 +420,7 @@ dftsust = dcast(dftsust, omega0 + logIntensity + logCycle + ppf ~ variable,
 palette <- function (name, indices = c(7,5,3)) {
   RColorBrewer::brewer.pal(9, name)[indices]
 }
-colours <- c(as.vector(sapply(c("Blues", "Purples","Reds"), palette)))
+colours <- c(as.vector(sapply(c("Greens","Blues", "Reds"), palette)))
 colour_palette <- c("LS"= colours[1], "LM"=colours[2], "LL"=colours[3],
                     "MS"=colours[4], "MM"=colours[5], "ML"=colours[6],
                     "HS"=colours[7], "HM"=colours[8], "HL"=colours[9])
@@ -535,9 +535,8 @@ ggplot(subset(dfvol_fig, ppf=="potential"), aes(x=t, y = med/1e6)) +
   theme(legend.position = c(0.75, 0.88)) +
   scale_x_continuous(expand = c(0, 0)) + 
   scale_y_continuous(expand = c(0, 0)) +
-  scale_color_discrete(labels=lapply(levels(dfvol_fig$Scenario), TeX)) +
+  scale_color_brewer(palette = "Dark2", labels=lapply(levels(dfvol_fig$Scenario), TeX)) +
   guides(color = guide_legend(nrow=4), fill = FALSE)
-ggsave("fig-sustainability-vol.pdf")
 ```
 
 None of the scenarios with an initial commercial volume proportion of 20% are sustainable after the first logging cycle (Figure\@ref(fig:tsust-vs-prodi); Table \@ref(tab:sust-production)). The present logging practices in the Brazilian Amazon usually correspond to a proportion of commercial species around 20%, a mean logging intensity of 15-20 m$^3$.ha$^{-1}$ and a rotation cycle of 35 years. Under such rules, the timber production can be maintained only for a single cutting cycle (35 years, grey line in Table \@ref(tab:sust-production)). Scenarios with higher proportion of commercial timber show longer duration of maintained production: `r dftsust[logIntensity==20 & logCycle==35 & omega0==0.5 & ppf == "Potential concessions", "lab_tsust"]` and `r dftsust[logIntensity==20 & logCycle==35 & omega0==0.9 & ppf == "Potential concessions", "lab_tsust"]` when the proportion of commercial species is respectively 50% and 90%. 
