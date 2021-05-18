@@ -171,23 +171,56 @@ locations$pFlona <- locations$pFlona*pi
 ```
 
 
-## The VDDE model 
+## Modelling framework
 
 In this study we used the volume dynamics with differential equations model (VDDE) [@Piponiot2018]. The VDDE model calculates the volume of all live trees $\geq$ 50 cm diameter at breast height (DBH), the standard minimum cutting size in the Brazilian Amazon. The portion of this volume composed of commercial species is referred to as the commercial volume.
 
-The input variables set for each simulation are logging intensity, logging cycle length, and the initial proportion of the volume that is commercial ($\omega_0$). Low values of $\omega_0$ represent highly selective logging where only the most valuable species are harvested whereas high values mean that most species are logged. Other parameters of the VDDE model are spatially defined at a 1$^\circ$ resolution. The model was calibrated for the Amazon Basin with a Bayesian framework with data from 3500 ha of forest plots, among which 845 ha are from 15 sites monitored for as long as 30 years after selective logging [@Sist2015;@Piponiot2019]. Predictions of commercial volume recovery rates thereby vary with location.
+In the VDDE model, total volume dynamics are the result of two ecosystem processes: volume gains due to tree growth and volume losses due to tree mortality. Both processes are expressed as a function of a hidden variable, forest maturity $\tau$, which increases progressively over time in the absence of disturbance. 
 
-Each logging cycle includes the harvest itself as a function of logging intensity and forest characteristics and the post-logging volume recovery phase, which varies with logging cycle length and forest characteristics. Logging lowers both the total volume and the proportion of commercial volume, but both then increase during the recovery phase, although the proportion of commercial volume takes longer to recover because it relies solely on the recruitment of trees < 50 cm DBH [@Piponiot2019]. These two steps are sequentially repeated to simulate 1000 years of logging.
+Annual volume growth $g(\tau)$ and mortality $m(\tau)$ are modelled as follows: 
 
-The results are then multiplied by the area of current or potential concessions in each 1$^\circ$ pixel, and by a factor $\pi \sim \mathcal{Beta}(8.2, 5.9)$ between 0 and 1, with a mean value of 58%. This factor $\pi$, which was calibrated with data from logging concessions in French Guiana, reflects the ratio between logged areas and the initially allocated areas, mostly because of slope restrictions and riparian reserves, but also heavy forest degradation because of illegal logging and other disturbances [@Verissimo2006;@Piponiot2019]. 
+\begin{equation}
+\forall \tau>0, \left\{ \begin{split}
+         & g(\tau) = \alpha_G \left(1-e^{-\beta_G \cdot \tau}\right) - \theta\cdot vol(\tau)\\
+		 & m(\tau) = \alpha_M \left(1-e^{-\beta_M \cdot \tau}\right)
+    \end{split}
+\right.
+\end{equation}
+
+where $\tau$ is the forest maturity; $\alpha_G$ is the asymptotic gross volume productivity; $\alpha_M$ is the asymptotic volume mortality; $\beta_G$ and $\beta_M$ are the rates at which the asymptotic gross volume productivity and asymptotic volume mortality are respectively reached; $\theta$ is the relative maintenance cost; $vol(\tau)$ is the total volume at maturity $\tau$.
+
+The total volume $vol(\tau)$ can be calculated from the equations of annual volume growth and mortality [see @Piponiot2018] as: 
+
+$$ vol(\tau) = \frac{\alpha_G}{\theta} \left(  1 - \frac{\theta\cdot e^{-\beta_G \cdot \tau} - \beta_G\cdot e^{-\theta \cdot \tau}}{\theta - \beta_G}\right) - \frac{\alpha_M}{\theta} \left(  1 - \frac{\theta\cdot e^{-\beta_M \cdot \tau} - \beta_M\cdot e^{-\theta \cdot \tau}}{\theta - \beta_M}\right)$$ 
+
+The total volume increases with the forest maturity, and tends towards the asymptotic volume $vmax = \frac{\alpha_G - \alpha_M}{\theta}$, for high values of maturity of the forest. When a disturbance occurs, whether natural (e.g., a large windthrow) or anthropogenic (e.g., logging), it abruptly reduces the maturity of the forest, and thus its total volume. 
+
+The model was calibrated for the Amazon Basin with a Bayesian framework with data from 3500 ha of forest plots, among which 845 ha are from 15 sites monitored for as long as 30 years after selective logging [@Sist2015;@Piponiot2019]. Predictions of commercial volume recovery rates thereby vary with location.
+Amazon-scale predictions of asymptotic gross volume productivity and asymptotic volume are based on results from the FORMIND simulator [@Roedig2017]; predictions of pre-logging forest maturity are based on aggregated data from the Rainfor network [@Johnson2016]. Other model parameters ($\beta_G$, $\beta_M$, and $\theta$) were assumed to be constant across the Amazon. Data and detailed methodology for the Amazon-wide model calibration are provided in @Piponiot2019. 
+
+Only a portion of all trees over 50 cm DBH are of commercial value. In this study, the pre-logging proportion of commercial volume was set at each simulation (see "Simulations"). Because logging targets commercial species, the proportion of commercial volume decreases after logging, and increases between logging events through recruitment of $<$ 50 cm DBH trees, as described in @Piponiot2018.
+
+Around 20-50% of large trees in Amazonian natural forests have hollows or other defects that make them unsuitable for timber harvesting [@Valle2006]. Following @Piponiot2019, we multiplied all timber volumes in our simulations by a factor $(1-Pdef)$, with $Pdef$ the proportion of defective volume modelled as:
+$$Pdef \sim \mathcal{B}eta(6, 14) $$
+where $\mathcal{B}eta(6, 14)$ is the beta distribution of shape parameters $\alpha = 6$ and $\beta = 14$. 
+
+
+<!-- We used a map of the proportion of commercial volume developed in @Piponiot2019, based on forest sample plot data from the TmFO network and the RadamBrasil project [@Sist2015;@Radam]. The proportion of commercial volume was estimated in each plot as the proportion of all species with a commercial use record in the Amazon among the total volume of trees $\geq$ 50 cm DBH. These values were then interpolated to get an Amazon-scale map.   -->
+
+
+
+## Simulations
+
+We tested 27 different scenarios by using combinations of the following inputs: (i) initial proportion of commercial volume: 20% (highly selective), 50% (intermediate) or 90% (non-selective); (ii) logging intensity: 10 m$^3$.ha$^{-1}$ (low), 20 m$^3$.ha$^{-1}$ (intermediate) or 30 m$^3$.ha$^{-1}$ (high); (iii) cutting cycle length: 20 years (short), 35 years (intermediate) or 60 years (long). The remaining VDDE model parameters (as defined in "Modelling Framework") are defined spatially at a resolution of 1$^\circ$..
+
+Each logging cycle includes the harvest itself as a function of logging intensity and forest characteristics (i.e. the spatially explicit VDDE parameters, defined in " Modelling framework") and the post-logging volume recovery phase, which varies with logging cycle length and forest characteristics. Logging lowers both the total volume and the proportion of commercial volume, but both then increase during the recovery phase, although the proportion of commercial volume takes longer to recover because it relies solely on the recruitment of trees < 50 cm DBH [@Piponiot2018]. These two steps are sequentially repeated to simulate 1000 years of logging. 
 
 Uncertainties are propagated throughout the model by drawing all parameter values from their calibrated distribution [from @Piponiot2019], and simulating logging cycles with these parameter values. This process is repeated 100 times and summary statistics (medians and 95% credibility intervals) are calculated at each time step.
 
-## Testing scenarios
+The results are then multiplied by the area of current or potential concessions (see “Study areas”) in each 1$^\circ$ pixel, and by a factor $\pi \sim \mathcal{Beta}(8.2, 5.9)$ between 0 and 1, with a mean value of 58%. This factor $\pi$, which was calibrated with data from logging concessions in French Guiana, reflects the ratio between logged areas and the initially allocated areas, mostly because of slope restrictions and riparian reserves, but also heavy forest degradation because of illegal logging and other disturbances [@Verissimo2006;@Piponiot2019]. 
 
-We tested 27 different scenarios by using combinations of the following inputs: (i) initial proportion of commercial volume: 20% (highly selective), 50% (intermediate) or 90% (non-selective); (ii) logging intensity: 10 m3.ha-1 (low), 20 m$^3$.ha$^{-1}$ (intermediate) or 30 m$^3$.ha$^{-1}$ (high); (iii) cutting cycle length: 20 years (short), 35 years (intermediate) or 60 years (long). These scenarios are then applied to the current area of concessions and to the area of all potential concessions (see “Study areas”).
+For each scenario we determined the duration of maintained timber production, i.e. the time before timber stocks become insufficient to maintain a constant timber production as illustrated in Figure\@ref(fig:illust-sust-log). This maintained production is different from sustained timber production which theoretically shows a constant timber yield and stock over time (Figure\@ref(fig:illust-sust-log)).
 
-For each scenario we simulated 1000 years of logging cycles, and determined the duration of maintained timber production, i.e. the time before timber stocks become insufficient to maintain a constant timber production as illustrated in Figure\@ref(fig:illust-sust-log). This maintained production is different from sustained timber production which theoretically shows a constant timber yield and stock over time (Figure\@ref(fig:illust-sust-log)).
 
 ```{r illust-sust-log, fig.height = 4, fig.width = 8, fig.cap = "Illustration of the duration of maintained and sustained timber production. The x-axis represents years after the first selective harvest, and the y-axis represents commercial volumes as simulated by the model with a logging intensity of 10 m$^3$.ha$^{-1}$ and a logging cycle of 60 years. At each harvest, commercial volumes decrease (blue segments). If logging cycles are not long enough to allow recovery, the commercial volume decreases until it is not sufficient to maintain a constant production (10, 20 or 30 m$^3$.ha$^{-1}$, red segments). The time taken to reach this limit is the duration of the maintained production. In the sustained timber production, both timber yield and stocks remain constant."}
 logCyc = 60
@@ -417,10 +450,10 @@ dftsust = dcast(dftsust, omega0 + logIntensity + logCycle + ppf ~ variable,
 
 ```{r tsust-vs-prodi, fig.width = 10, fig.height = 8, fig.cap = "Tradeoff between timber production and sustainability. The x-axis is the annual timber production under each scenario, and in all areas considered in the scenario (left panels: current concessions; right panels: potential concessions). The y-axis is the duration of constant production in each scenario, in years. The points are the median value over all simulations for each scenario; the vertical and horizontal error bars are the 95% credibility intervals. Colors represent logging rules (3 logging intensities x 3 logging cycle lengths) and the 3 values of initial proportion of commercial volume ($\\omega_0$) are represented by different panels, in increasing order from top to bottom. The target production of timber is 11 Mm$^3$.yr$^{-1}$, corresponding to the current timber production in Brazilian Amazonian forests. Only a few scenarios in the right panels (all potential concessions) are above this target, and all of them have a median duration of constant production lower than 200 years."}
 ## legend
-palette <- function (name, indices = c(7,5,3)) {
+palette <- function (name, indices = c(8,6,4)) {
   RColorBrewer::brewer.pal(9, name)[indices]
 }
-colours <- c(as.vector(sapply(c("Greens","Blues", "Reds"), palette)))
+colours <- c(as.vector(sapply(c("Blues", "Purples", "Reds"), palette)))
 colour_palette <- c("LS"= colours[1], "LM"=colours[2], "LL"=colours[3],
                     "MS"=colours[4], "MM"=colours[5], "ML"=colours[6],
                     "HS"=colours[7], "HM"=colours[8], "HL"=colours[9])
@@ -468,6 +501,7 @@ graph <- ggplot(dftsust, aes(y=med_tsust, x = med_prodi/1e6)) +
   theme(legend.position = "none") 
 
 ggpubr::ggarrange(graph, rules_legend, widths = c(9,4))
+ggsave("fig3_C.png")
 ```
 
 

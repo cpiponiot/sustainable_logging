@@ -26,6 +26,18 @@
 #'
 #' @export
 #' 
+#' @examples 
+#' 
+#' dfsimu <- simulateLogging(
+#'   timeLength = 200,
+#'   logIntensity = 20,
+#'   logCycle = 30,
+#'   omega0 = 0.5,
+#'   uncertainties = FALSE,
+#'   longitude = -60,
+#'   latitude = 0
+#' )
+#' 
 simulateLogging <- function(timeLength,
                             logIntensity,
                             logCycle,
